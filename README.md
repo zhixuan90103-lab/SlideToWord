@@ -1,54 +1,45 @@
-# portrait-webgpu-base
+# Slide to Word
 
-**最稳健竖屏底座**：合并 **niantu** 的适配/TS/设备预览 + **three-webgpu-cap-shell** 的 Capacitor 打包、安全区、bootstrap、可验证 demo。
+竖屏划词关卡：壳来自 **portrait-webgpu-base**（390×844 + Capacitor iOS），玩法对照 **Word Search Pop** 主模式（直线 8 向找词）。
+
+远程：<https://github.com/zhixuan90103-lab/SlideToWord>
 
 | 文档 | 用途 |
 |------|------|
-| [AGENTS.md](./AGENTS.md) | AI / 新窗口第一入口 |
-| [docs/ENGINEERING.md](./docs/ENGINEERING.md) | 设计决策与踩坑 |
+| [AGENTS.md](./AGENTS.md) | 打开仓库第一入口 |
+| [docs/CONVENTIONS.md](./docs/CONVENTIONS.md) | **现行规范**（壳 + 玩法 + 按下/滑/抬手） |
+| [docs/SWIPE.md](./docs/SWIPE.md) | 划词手势设计（几何、死区、换向、两档线宽） |
+| [docs/ENGINEERING.md](./docs/ENGINEERING.md) | 适配、构建、安全区 |
 | [docs/ENTRYPOINTS.md](./docs/ENTRYPOINTS.md) | 入口与调用链 |
-| [docs/MERGE.md](./docs/MERGE.md) | 双工程优点对照与合并说明 |
-| [docs/AUDIO.md](./docs/AUDIO.md) | 音效方案（预解码 + 每帧一批 + 原生池） |
-| [docs/HAPTICS.md](./docs/HAPTICS.md) | 震动如何一次接对（插件注册 + 玩法层） |
+| [docs/HAPTICS.md](./docs/HAPTICS.md) | 震动接线 |
+| [docs/AUDIO.md](./docs/AUDIO.md) | 音效方案（未实现） |
+| [docs/MERGE.md](./docs/MERGE.md) | 原双工程合并说明（历史） |
 
-## 30 秒上手
+## 上手
 
 ```bash
-cd portrait-webgpu-base
 npm install
 npm run dev
-# → http://127.0.0.1:5190/
+# 默认 http://127.0.0.1:5190/
 ```
 
-应看到：桌面手机框、紫色立方体、safe/scale 状态、右上角 **手机/Pad** 切换、底部震动按钮。
+应看到：手机预览框、Level 23 词表、6×6 字母盘。划直线找词（含斜向）。
 
-## 合并了什么
+## 玩法（一句话）
 
-| 来自 niantu | 来自 three-webgpu-cap-shell |
-|-------------|----------------------------|
-| TS strict | `base: './'` |
-| 390×844 stage + contain | `contentInset: never` + scroll 关 |
-| Phone / Pad 预览 | `--safe-*` HUD + debug |
-| `clientToDesign` | `ios:bootstrap` 插件真源 |
-| | 可验证 3D demo + 震动按钮 |
-| AdvancedHaptics 宽 API | ENGINEERING / ENTRYPOINTS 文档结构 |
-| Capacitor 8 + Three 0.178 + Vite 6 | |
+按下字母 → 沿横/竖/斜一条线滑 → 松手若是词表里的词则收下。棋盘位置固定。
 
 ## iOS 真机
 
 ```bash
-npm run ios:bootstrap   # 首次
-npm run cap:open
-# Xcode: Team → 真机 → Run
+# 首次
+npm run ios:bootstrap
+# 日常（已有 ios/）
+npm run build && npx cap sync ios
+npx cap run ios --no-sync --target <设备 UDID>
 ```
 
-日常：`npm run cap:sync`。
+`appId`：`com.zhixuan.slidetoword`  
+`appName`：Slide to Word  
 
-占位 `appId`：`com.example.portraitwebgpubase` —— 上架前请改。
-
-## 复用到新游戏
-
-1. 复制本目录  
-2. 改 `capacitor.config.ts` 的 `appId` / `appName`  
-3. 在 `src/main.ts` 或 `src/game/*` 写玩法  
-4. **保留** adapt / create-renderer / haptics / plugins / `base: './'`  
+改手势常数只动 `src/game/swipeDesign.ts` 并同步 [SWIPE.md](./docs/SWIPE.md)。改观感动 `mount.ts` / `style.css`。规范以 [CONVENTIONS.md](./docs/CONVENTIONS.md) 为准。

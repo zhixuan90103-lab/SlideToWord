@@ -1,10 +1,10 @@
 # Engineering — portrait-webgpu-base
 
-配套：[AGENTS.md](../AGENTS.md) · [ENTRYPOINTS.md](./ENTRYPOINTS.md) · [MERGE.md](./MERGE.md) · [AUDIO.md](./AUDIO.md) · [HAPTICS.md](./HAPTICS.md)
+配套：[AGENTS.md](../AGENTS.md) · [CONVENTIONS.md](./CONVENTIONS.md) · [SWIPE.md](./SWIPE.md) · [ENTRYPOINTS.md](./ENTRYPOINTS.md) · [HAPTICS.md](./HAPTICS.md)
 
 ## 1. 定位
 
-可复制的 **竖屏 WebGPU 手游底座**：能 dev、能 build、能真机、能震动、桌面≈手机/Pad。不含具体玩法（demo 可删）。
+竖屏壳 + **Slide to Word** 划词关卡。壳：dev / build / 真机 / 震动 / 桌面≈手机/Pad。玩法规范见 [CONVENTIONS.md](./CONVENTIONS.md)。3D 渲染器仍在仓库里，当前启动链不用。
 
 ## 2. 目录
 
@@ -48,7 +48,8 @@ portrait-webgpu-base/
 
 | 项 | 值 |
 |----|-----|
-| `appId` | `com.example.portraitwebgpubase`（占位） |
+| `appId` | `com.zhixuan.slidetoword` |
+| `appName` | Slide to Word |
 | `webDir` | `dist` |
 | `ios.contentInset` | `never` |
 | `ios.scrollEnabled` | `false` |

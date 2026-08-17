@@ -4,11 +4,12 @@
 
 | 命令 | 结果 |
 |------|------|
-| `npm run dev` | http://127.0.0.1:5190/ |
-| `npm run build` | `tsc` 检查 + `dist/`（相对路径） |
+| `npm run dev` | Vite，默认 http://127.0.0.1:5190/ |
+| `npm run build` | `tsc` + `dist/`（相对路径） |
 | `npm run cap:sync` | build + cap sync ios |
 | `npm run ios:bootstrap` | add ios + 注入插件 + sync |
 | `npm run ios` | sync + open Xcode |
+| `npx cap run ios --no-sync --target <UDID>` | 装到已连真机 |
 
 ## 2. Web 启动链
 
@@ -17,12 +18,15 @@ index.html
   → style.css
   → main.ts
        → applyNativeClass / safeArea
-       → createRenderer(#stage)
-       → demo scene
        → mountDevicePreview → computeStageLayout → applyStageTransform
        → watchStageLayout
-       → haptics + HUD buttons
+       → mountWordSearch(#ui-root)
+            → model 关卡
+            → swipeDesign 手势
+            → pointer + 条/字反馈
 ```
+
+当前 **不** 创建 WebGPU canvas。
 
 ## 3. DOM
 
@@ -31,33 +35,36 @@ index.html
   #viewport
     #app
       #stage
-        canvas
-        #ui-root
+        #ui-root.ws-root
+          词表 / 预览浮层 / 棋盘
+            svg.ws-lines   （条，字下面）
+            .ws-cells      （字）
 #device-switcher / #device-label   (web only)
 ```
 
 ## 4. iOS
 
-震动插件 **不会**随 `cap:sync` 自动注册。第一次 / 改插件必须 `ios:bootstrap`。步骤见 [HAPTICS.md §0](./HAPTICS.md)。
+震动插件 **不会**随 `cap:sync` 自动注册。第一次 / 改插件必须 `ios:bootstrap`。见 [HAPTICS.md §0](./HAPTICS.md)。
 
 ```
 ios:bootstrap
   → 拷 plugins/native-haptics → ios/App/App
   → Main.storyboard customClass = BridgeViewController
-Xcode → BridgeViewController.capacitorDidLoad
-  → registerPluginInstance(AdvancedHapticsPlugin)
+Xcode / cap run
   → load App/public (= dist)
-  → 同上 Web 链
+  → 同上 Web 链（无 WebGPU）
 ```
 
 ## 5. 改配置找谁
 
 | 要改 | 文件 |
 |------|------|
+| 规范总表 | [CONVENTIONS.md](./CONVENTIONS.md) |
+| 划词投影 / 死区 / 换向 / 线宽 | `src/game/swipeDesign.ts` · [SWIPE.md](./SWIPE.md) |
+| 盘面与按下观感 | `src/game/mount.ts` · `src/style.css` |
+| 关卡 | `src/game/model.ts` |
 | base / 端口 | `vite.config.ts` |
-| appId | `capacitor.config.ts` |
-| 设计分辨率 | `design.ts` + `style.css` |
+| appId / 显示名 | `capacitor.config.ts` |
+| 设计分辨率 | `design.ts` + `style.css` `#stage` |
 | 震动原生 | `plugins/native-haptics/*.swift` + bootstrap |
-| 启动 HUD | `index.html` + `main.ts` |
 | 音效（规划） | [AUDIO.md](./AUDIO.md) |
-| 震动接线 | [HAPTICS.md](./HAPTICS.md) |

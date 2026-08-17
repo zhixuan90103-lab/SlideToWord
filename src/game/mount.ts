@@ -7,11 +7,13 @@ import {
   type Level,
 } from './model';
 import {
+  COMMIT_LINE_WIDTH_CELLS,
   LINE_WIDTH_CELLS,
   beginSwipe,
   cellFromLocal,
   moveSwipe,
   pathCells,
+  tickAlongVisual,
   type SwipeSession,
 } from './swipeDesign';
 
@@ -24,8 +26,16 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
   const remaining = new Set(level.words);
   const found: Found[] = [];
   let session: SwipeSession | null = null;
-  let colorIndex = 0;
+  let strokeColor = LINE_COLORS[0]!;
   let lastTickKey = '';
+  let visualRaf = 0;
+
+  function pickStrokeColor(): string {
+    const used = new Set(found.map((f) => f.color));
+    const pool = LINE_COLORS.filter((c) => !used.has(c));
+    const pickFrom = pool.length > 0 ? pool : LINE_COLORS;
+    return pickFrom[Math.floor(Math.random() * pickFrom.length)]!;
+  }
 
   uiRoot.classList.add('ws-root');
   uiRoot.innerHTML = `
@@ -94,7 +104,7 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
       x2 = ((start.col + 0.5 + step.col * t) / n) * 100;
       y2 = ((start.row + 0.5 + step.row * t) / n) * 100;
     }
-    const width = (100 / n) * LINE_WIDTH_CELLS;
+    const width = (100 / n) * (temp ? LINE_WIDTH_CELLS : COMMIT_LINE_WIDTH_CELLS);
     return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${color}" stroke-width="${width}" stroke-linecap="round" opacity="1"/>`;
   }
 
@@ -102,7 +112,14 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
     const parts = found.map((f) => svgSeg(f.start, f.end, f.color, false));
     if (session) {
       parts.push(
-        svgSeg(session.path.start, session.path.end, '#22c55e', true, session.along, session.step),
+        svgSeg(
+          session.path.start,
+          session.path.end,
+          strokeColor,
+          true,
+          session.alongVisual,
+          session.step,
+        ),
       );
     }
     svgEl.innerHTML = parts.join('');
@@ -132,6 +149,7 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
     const changed = previewEl.textContent !== text || previewEl.hidden;
     previewEl.hidden = false;
     previewEl.textContent = text;
+    previewEl.style.background = strokeColor;
     if (pop && changed) bump(previewEl, 'pop');
   }
 
@@ -161,12 +179,27 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
     const cell = cellFromLocal(loc.x, loc.y, loc.px, level.size);
     if (!cell) return;
     boardEl.setPointerCapture(ev.pointerId);
+    strokeColor = pickStrokeColor();
     session = beginSwipe(cell);
     lastTickKey = `${cell.row},${cell.col}`;
     render();
     setPreview(level.grid[cell.row][cell.col], true);
     void haptics.selection();
     ev.preventDefault();
+    if (!visualRaf) visualRaf = requestAnimationFrame(pumpVisual);
+  }
+
+  function pumpVisual(): void {
+    visualRaf = 0;
+    if (!session) return;
+    session = tickAlongVisual(session);
+    render();
+    visualRaf = requestAnimationFrame(pumpVisual);
+  }
+
+  function stopVisual(): void {
+    if (visualRaf) cancelAnimationFrame(visualRaf);
+    visualRaf = 0;
   }
 
   function onMove(ev: PointerEvent): void {
@@ -204,9 +237,8 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
         word,
         start,
         end,
-        color: LINE_COLORS[colorIndex % LINE_COLORS.length],
+        color: strokeColor,
       });
-      colorIndex += 1;
       void haptics.notification('success');
       renderWords();
       const hit = [...wordsEl.querySelectorAll('li')].find((el) => el.textContent === word);
@@ -224,6 +256,7 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
     }
     session = null;
     lastTickKey = '';
+    stopVisual();
     render();
   }
 
@@ -231,8 +264,8 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
     remaining.clear();
     level.words.forEach((w) => remaining.add(w));
     found.length = 0;
-    colorIndex = 0;
     session = null;
+    stopVisual();
     winEl.hidden = true;
     renderWords();
     render();
@@ -253,6 +286,7 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
     boardEl.removeEventListener('pointerup', onUp);
     boardEl.removeEventListener('pointercancel', onUp);
     resetBtn.removeEventListener('click', reset);
+    stopVisual();
   };
 }
 

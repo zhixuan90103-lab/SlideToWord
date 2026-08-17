@@ -16,10 +16,15 @@
 
 import { cellsOnSegment, inBounds, type Cell } from './model';
 
-export const LOCK_SLOP_CELLS = 0.42;
+export const LOCK_SLOP_CELLS = 0.35;
 export const OCTANT_STEP = Math.PI / 4;
-export const OCTANT_HOLD = OCTANT_STEP * 0.38;
-export const LINE_WIDTH_CELLS = 0.72;
+/** ~28°: past the 22.5° octant midline so a switch needs extra angle. */
+export const OCTANT_HOLD = OCTANT_STEP * 0.62;
+export const LINE_WIDTH_CELLS = 0.75;
+/** Confirmed (found) stroke after lift. Live swipe stays LINE_WIDTH_CELLS. */
+export const COMMIT_LINE_WIDTH_CELLS = 0.65;
+/** Visual length only: catch up in ~2 frames at 60Hz. Direction / letters stay instant. */
+export const ALONG_FOLLOW_TAU = 0.03;
 
 export type PathState = {
   start: Cell;
@@ -32,16 +37,32 @@ export type SwipeSession = {
   octant: number | null;
   /** How far the finger is along the locked ray, in cells (can be 1.3). */
   along: number;
+  /** Smoothed length for drawing only. */
+  alongVisual: number;
+  visualAt: number;
   step: Cell;
 };
 
 export function beginSwipe(start: Cell): SwipeSession {
+  const now = performance.now();
   return {
     start,
     path: { start, end: start },
     octant: null,
     along: 0,
+    alongVisual: 0,
+    visualAt: now,
     step: { row: 0, col: 0 },
+  };
+}
+
+export function tickAlongVisual(session: SwipeSession, now = performance.now()): SwipeSession {
+  const dt = Math.min(0.05, Math.max(0, (now - session.visualAt) / 1000));
+  const k = 1 - Math.exp(-dt / ALONG_FOLLOW_TAU);
+  return {
+    ...session,
+    alongVisual: session.alongVisual + (session.along - session.alongVisual) * k,
+    visualAt: now,
   };
 }
 
@@ -53,13 +74,15 @@ export function moveSwipe(
   size: number,
 ): SwipeSession {
   const resolved = resolveRay(session.start, localX, localY, gridPx, size, session.octant);
-  return {
+  return tickAlongVisual({
     start: session.start,
     path: resolved.path,
     octant: resolved.octant,
     along: resolved.along,
+    alongVisual: session.alongVisual,
+    visualAt: session.visualAt,
     step: resolved.step,
-  };
+  });
 }
 
 export function pathCells(path: PathState): Cell[] {
