@@ -7,7 +7,7 @@
 
 **TypeScript + Vite + Capacitor iOS** 竖屏关卡。设计空间 **390×844**，contain letterbox。当前玩法是 DOM 划词，不依赖 WebGPU。
 
-规范真源：[docs/CONVENTIONS.md](./docs/CONVENTIONS.md) · 手势细则：[docs/SWIPE.md](./docs/SWIPE.md)
+规范真源：[docs/CONVENTIONS.md](./docs/CONVENTIONS.md) · 手势细则：[docs/SWIPE.md](./docs/SWIPE.md) · 意图：[docs/INTENT.md](./docs/INTENT.md)
 
 ## 入口地图
 
@@ -27,6 +27,7 @@
 | 构建 | `vite.config.ts`（**`base: './'`**） |
 | iOS 注入 | `scripts/bootstrap-ios.mjs` |
 | 规范总表 | `docs/CONVENTIONS.md` |
+| 意图识别（未接代码） | `docs/INTENT.md` |
 | 音效方案（未实现） | `docs/AUDIO.md` |
 | 3D 渲染（现未用） | `src/create-renderer.ts` |
 
@@ -53,8 +54,8 @@
 8. **划词投影只写在 `swipeDesign.ts`**  
 9. **方向用起点中心→手指的 8 向，禁止用矩形邻格抢锁**  
 10. **对角一步 = 1 格**（`along` 按 `\|step\|²` 归一）  
-11. **死区 0.35 格；已锁后约 28° 内不换向**（粘住须大于 22.5° 中线）  
-12. **滑动中线宽 0.75 格；找对留下 0.65 格**  
+11. **死区 0.35 格；方向柔和粘住、可换向，不锁死**（见 INTENT.md）  
+12. **滑动中线宽 0.75 格；找对留下 0.7 格**  
 13. **按下：本次色不透明、条在字下、字立刻变白并绕字心放大；色排除盘上已有**  
 14. **棋盘不因点击/预览上下位移**
 
@@ -76,6 +77,7 @@ npx cap run ios --no-sync --target <UDID>
 
 - 关卡：`src/game/model.ts`  
 - 手感：`swipeDesign.ts` + `docs/SWIPE.md`  
+- 意图：`docs/INTENT.md`（先规范后实现）  
 - 观感：`mount.ts` + `style.css`  
 - 保留：adapt / haptics / plugins / `base`  
 - 音效：按 `docs/AUDIO.md`；禁止热路径 `new Audio()` / 每发一次桥  

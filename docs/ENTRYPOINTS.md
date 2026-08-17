@@ -61,6 +61,7 @@ Xcode / cap run
 |------|------|
 | 规范总表 | [CONVENTIONS.md](./CONVENTIONS.md) |
 | 划词投影 / 死区 / 换向 / 线宽 | `src/game/swipeDesign.ts` · [SWIPE.md](./SWIPE.md) |
+| 意图识别 | [INTENT.md](./INTENT.md) |
 | 盘面与按下观感 | `src/game/mount.ts` · `src/style.css` |
 | 关卡 | `src/game/model.ts` |
 | base / 端口 | `vite.config.ts` |

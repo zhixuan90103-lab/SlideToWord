@@ -9,6 +9,7 @@
 | [AGENTS.md](./AGENTS.md) | 打开仓库第一入口 |
 | [docs/CONVENTIONS.md](./docs/CONVENTIONS.md) | **现行规范**（壳 + 玩法 + 按下/滑/抬手） |
 | [docs/SWIPE.md](./docs/SWIPE.md) | 划词手势设计（几何、死区、换向、两档线宽） |
+| [docs/INTENT.md](./docs/INTENT.md) | 意图识别（候选、柔和方向、终点门；代码未接） |
 | [docs/ENGINEERING.md](./docs/ENGINEERING.md) | 适配、构建、安全区 |
 | [docs/ENTRYPOINTS.md](./docs/ENTRYPOINTS.md) | 入口与调用链 |
 | [docs/HAPTICS.md](./docs/HAPTICS.md) | 震动接线 |

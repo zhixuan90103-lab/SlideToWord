@@ -22,7 +22,7 @@ export const OCTANT_STEP = Math.PI / 4;
 export const OCTANT_HOLD = OCTANT_STEP * 0.62;
 export const LINE_WIDTH_CELLS = 0.75;
 /** Confirmed (found) stroke after lift. Live swipe stays LINE_WIDTH_CELLS. */
-export const COMMIT_LINE_WIDTH_CELLS = 0.65;
+export const COMMIT_LINE_WIDTH_CELLS = 0.7;
 /** Visual length only: catch up in ~2 frames at 60Hz. Direction / letters stay instant. */
 export const ALONG_FOLLOW_TAU = 0.03;
 
