@@ -521,6 +521,12 @@ button:active {
   transition: transform var(--ws-glyph-shrink-ms, 300ms) cubic-bezier(0.22, 0.82, 0.24, 1);
 }
 
+.ws-cells.fail-out .ws-glyph {
+  transition:
+    transform var(--ws-glyph-shrink-ms, 300ms) cubic-bezier(0.22, 0.82, 0.24, 1),
+    color 220ms ease;
+}
+
 .ws-cell.lit .ws-glyph,
 .ws-cell.tip .ws-glyph {
   color: #fff;

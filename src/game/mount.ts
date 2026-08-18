@@ -114,12 +114,30 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
 
   const SVG_NS = 'http://www.w3.org/2000/svg';
   const foundGroup = document.createElementNS(SVG_NS, 'g');
+  const liveGroup = document.createElementNS(SVG_NS, 'g');
   const liveLine = document.createElementNS(SVG_NS, 'line');
   liveLine.setAttribute('stroke-linecap', 'round');
-  liveLine.setAttribute('opacity', '1');
-  liveLine.style.display = 'none';
-  svgEl.replaceChildren(foundGroup, liveLine);
+  liveGroup.append(liveLine);
+  svgEl.replaceChildren(foundGroup, liveGroup);
   let paintedFound = -1;
+
+  type FailHold = {
+    start: Cell;
+    end: Cell;
+    along: number;
+    step: Cell;
+    color: string;
+    lit: string[];
+    fadeLetters: boolean;
+  };
+  let failHold: FailHold | null = null;
+  let failRaf = 0;
+  let failStarted = 0;
+  const FAIL_SHAKE_MS = 480;
+  const FAIL_FADE_AT = 400;
+  const FAIL_FADE_MS = 260;
+  const FAIL_CYCLES = 3.25;
+  const FAIL_AMP_CELLS = 0.1;
   let letterAlongN = 0;
 
   /** Light/scale a cell 0.3 steps before its center (along + 0.3). */
@@ -191,17 +209,32 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
     );
   }
 
+  function resetLiveGroup(): void {
+    liveGroup.removeAttribute('transform');
+    liveGroup.setAttribute('opacity', '1');
+    liveLine.style.display = 'none';
+  }
+
   function paintLiveLine(): void {
-    if (!session) {
-      liveLine.style.display = 'none';
+    const src = session
+      ? {
+          start: session.path.start,
+          end: session.path.end,
+          along: session.along,
+          step: session.step,
+          color: strokeColor,
+        }
+      : failHold;
+    if (!src) {
+      resetLiveGroup();
       return;
     }
     liveLine.style.display = '';
-    setLine(
-      liveLine,
-      lineGeom(session.path.start, session.path.end, true, session.along, session.step),
-      strokeColor,
-    );
+    setLine(liveLine, lineGeom(src.start, src.end, true, src.along, src.step), src.color);
+    if (session) {
+      liveGroup.removeAttribute('transform');
+      liveGroup.setAttribute('opacity', '1');
+    }
   }
 
   function render(): void {
@@ -220,6 +253,8 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
       for (const c of reached) lit.add(`${c.row},${c.col}`);
       const tip = reached[reached.length - 1];
       if (tip) tipKey = `${tip.row},${tip.col}`;
+    } else if (failHold && !failHold.fadeLetters) {
+      for (const key of failHold.lit) lit.add(key);
     }
     cellsEl.querySelectorAll<HTMLElement>('.ws-cell').forEach((el) => {
       const key = `${el.dataset.row},${el.dataset.col}`;
@@ -274,6 +309,7 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
     if (!loc) return;
     const cell = cellFromLocal(loc.x, loc.y, loc.px, level.size);
     if (!cell) return;
+    stopFailFx();
     boardEl.setPointerCapture(ev.pointerId);
     strokeColor = pickStrokeColor();
     startCandidates = placementsAtCell(livePlacements(), cell);
@@ -331,11 +367,79 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
     ev.preventDefault();
   }
 
+  function failAxis(): { x: number; y: number } {
+    const step = failHold?.step ?? session?.step;
+    if (!step || (step.row === 0 && step.col === 0)) return { x: 1, y: 0 };
+    const len = Math.hypot(step.col, step.row) || 1;
+    return { x: step.col / len, y: step.row / len };
+  }
+
+  function stopFailFx(): void {
+    if (failRaf) cancelAnimationFrame(failRaf);
+    failRaf = 0;
+    failHold = null;
+    cellsEl.classList.remove('fail-out');
+    resetLiveGroup();
+  }
+
+  function pumpFail(now: number): void {
+    failRaf = 0;
+    if (!failHold) return;
+    const t = now - failStarted;
+    const shakeT = Math.min(1, t / FAIL_SHAKE_MS);
+    const fadeT = t <= FAIL_FADE_AT ? 0 : Math.min(1, (t - FAIL_FADE_AT) / FAIL_FADE_MS);
+    const envelope = (1 - shakeT) * (1 - shakeT);
+    const wave = Math.sin(shakeT * FAIL_CYCLES * Math.PI * 2);
+    const amp = FAIL_AMP_CELLS * (100 / level.size);
+    const axis = failAxis();
+    const dx = axis.x * amp * envelope * wave;
+    const dy = axis.y * amp * envelope * wave;
+    liveGroup.setAttribute('transform', `translate(${dx.toFixed(3)} ${dy.toFixed(3)})`);
+    liveGroup.setAttribute('opacity', String(1 - fadeT));
+    if (fadeT > 0 && !failHold.fadeLetters) {
+      failHold.fadeLetters = true;
+      cellsEl.classList.add('fail-out');
+      render();
+    }
+    if (t >= FAIL_FADE_AT + FAIL_FADE_MS) {
+      stopFailFx();
+      render();
+      return;
+    }
+    failRaf = requestAnimationFrame(pumpFail);
+  }
+
+  function beginFailFx(): void {
+    if (!session) return;
+    stopFailFx();
+    const reached = cellsReachedByLine(
+      session.path.start,
+      session.step,
+      letterAlongN,
+      level.size,
+    );
+    failHold = {
+      start: session.path.start,
+      end: session.path.end,
+      along: session.along,
+      step: session.step,
+      color: strokeColor,
+      lit: reached.map((c) => `${c.row},${c.col}`),
+      fadeLetters: false,
+    };
+    failStarted = performance.now();
+    paintLiveLine();
+    failRaf = requestAnimationFrame(pumpFail);
+  }
+
   function finishStroke(ok: boolean): void {
     previewEl.classList.remove('pop');
     bump(previewEl, 'out');
     window.setTimeout(() => setPreview('', false), 140);
-    if (!ok) return;
+    if (!ok) {
+      beginFailFx();
+      return;
+    }
     renderWords();
     const word = found[found.length - 1]?.word;
     const hit = word
@@ -416,6 +520,7 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
     level.words.forEach((w) => remaining.add(w));
     found.length = 0;
     paintedFound = -1;
+    stopFailFx();
     session = null;
     startCandidates = [];
     stopVisual();
