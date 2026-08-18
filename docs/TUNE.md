@@ -2,9 +2,11 @@
 
 配套：[CONVENTIONS.md](./CONVENTIONS.md) · [SWIPE.md](./SWIPE.md)
 
-真源：`src/game/tune.ts`（默认与滑条范围以代码为准）。右上角 ⚙ 开关，底板挂在 `#ui-root`（禁止 `position: fixed`）。值写入 `localStorage` 键 `slidetoword.tune.v12`。
+真源：`src/game/tune.ts`（默认与滑条范围以代码为准）。右上角 ⚙ 开关，底板挂在 `#ui-root`（禁止 `position: fixed`）。值写入 `localStorage` 键 `slidetoword.tune.v14`。
 
-面板目前只显示震动四档（按下 / 过格 / 找对 / 错误）的强度与锐度。布局项仍从存储或默认值生效，不在面板里改。**不改**死区、8 向、终点门（那些在 `swipeDesign.ts`）。
+词表底板高度倍率 `hintsY`（默认 0.60），压主题条与词表上下内边距、行距。
+
+面板显示词表底板高度 + 震动四档。其它布局项仍从存储或默认值生效。**不改**死区、8 向、终点门。
 
 ## 震动默认（0–1）
 

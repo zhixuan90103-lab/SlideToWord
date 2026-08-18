@@ -13,6 +13,7 @@ export type Tune = {
   previewX: number;
   previewY: number;
   pressScale: number;
+  hintsY: number;
   hapticPressI: number;
   hapticPressS: number;
   hapticTickI: number;
@@ -45,6 +46,7 @@ export const TUNE_DEFAULTS: Tune = {
   previewX: 0,
   previewY: 24,
   pressScale: 1.28,
+  hintsY: 0.6,
   hapticPressI: 0.55,
   hapticPressS: 0.86,
   hapticTickI: 0.25,
@@ -66,7 +68,7 @@ export const TUNE_DEFAULTS: Tune = {
   hapticMiss3S: 0.35,
 };
 
-const STORAGE_KEY = 'slidetoword.tune.v12';
+const STORAGE_KEY = 'slidetoword.tune.v14';
 
 type SliderSpec = {
   key: keyof Tune;
@@ -87,6 +89,11 @@ const LAYOUT_SLIDERS: SliderSpec[] = [
   { key: 'previewX', label: '胶囊左右', min: -80, max: 80, step: 1 },
   { key: 'previewY', label: '胶囊上下', min: -80, max: 80, step: 1 },
   { key: 'pressScale', label: '按下放大', min: 1, max: 1.8, step: 0.01 },
+  { key: 'hintsY', label: '底板高度', min: 0.55, max: 1.2, step: 0.01 },
+];
+
+const PANEL_LAYOUT: SliderSpec[] = [
+  { key: 'hintsY', label: '高度', min: 0.55, max: 1.2, step: 0.01 },
 ];
 
 type HapticGroup = {
@@ -154,6 +161,8 @@ export function loadTune(): Tune {
   try {
     const raw =
       localStorage.getItem(STORAGE_KEY) ??
+      localStorage.getItem('slidetoword.tune.v13') ??
+      localStorage.getItem('slidetoword.tune.v12') ??
       localStorage.getItem('slidetoword.tune.v11') ??
       localStorage.getItem('slidetoword.tune.v10') ??
       localStorage.getItem('slidetoword.tune.v9') ??
@@ -194,6 +203,7 @@ export function applyTune(root: HTMLElement, tune: Tune): void {
   s.setProperty('--ws-preview-x', `${tune.previewX}px`);
   s.setProperty('--ws-preview-y', `${tune.previewY}px`);
   s.setProperty('--ws-press-scale', String(tune.pressScale));
+  s.setProperty('--ws-hints-y', String(tune.hintsY));
 }
 
 export function playFindHaptic(t: Tune): void {
@@ -262,6 +272,20 @@ export function mountTunePanel(
         <button type="button" class="ws-tune-close">完成</button>
       </header>
       <div class="ws-tune-body">
+        <section class="ws-tune-sec">
+          <header class="ws-tune-sec-head">
+            <p>词表底板</p>
+          </header>
+          ${PANEL_LAYOUT.map(
+            (spec) => `
+          <label class="ws-tune-row">
+            <span class="ws-tune-label">${spec.label}</span>
+            <span class="ws-tune-val" data-k="${spec.key}"></span>
+            <input type="range" data-k="${spec.key}"
+              min="${spec.min}" max="${spec.max}" step="${spec.step}" />
+          </label>`,
+          ).join('')}
+        </section>
         ${HAPTIC_GROUPS.map(
           (g) => `
           <section class="ws-tune-sec" data-haptic="${g.id}">
@@ -295,7 +319,12 @@ export function mountTunePanel(
 
   function format(key: keyof Tune, n: number): string {
     if (key.includes('Gap') || key.includes('Dur')) return `${Math.round(n * 1000)}ms`;
-    if (key === 'boardScale' || key === 'pressScale' || key.startsWith('haptic')) {
+    if (
+      key === 'boardScale' ||
+      key === 'pressScale' ||
+      key === 'hintsY' ||
+      key.startsWith('haptic')
+    ) {
       return n.toFixed(2);
     }
     return String(Math.round(n));
@@ -319,7 +348,7 @@ export function mountTunePanel(
   }
 
   function syncUi(): void {
-    for (const spec of HAPTIC_SLIDERS) {
+    for (const spec of [...PANEL_LAYOUT, ...HAPTIC_SLIDERS]) {
       const input = inputs.find((el) => el.dataset.k === spec.key);
       const label = vals.find((el) => el.dataset.k === spec.key);
       if (input) input.value = String(tune[spec.key]);

@@ -374,17 +374,17 @@ body.ws-tune-open .ws-top {
   font-size: 15px;
   font-weight: 700;
   font-style: italic;
-  padding: 8px 12px;
+  padding: calc(8px * var(--ws-hints-y, 0.6)) 12px;
   letter-spacing: 0.01em;
 }
 
 .ws-words {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
-  gap: 12px 8px;
+  gap: calc(12px * var(--ws-hints-y, 0.6)) 8px;
   list-style: none;
   margin: 0;
-  padding: 14px 10px 16px;
+  padding: calc(14px * var(--ws-hints-y, 0.6)) 10px calc(16px * var(--ws-hints-y, 0.6));
 }
 
 .ws-words li {
@@ -398,7 +398,7 @@ body.ws-tune-open .ws-top {
 .ws-words li.found {
   color: #9ca3af;
   text-decoration: line-through;
-  text-decoration-thickness: 2px;
+  text-decoration-thickness: 3px;
 }
 
 .ws-words li.found:has(.ws-ch) {
@@ -418,8 +418,8 @@ body.ws-tune-open .ws-top {
   left: 0;
   right: 0;
   top: 50%;
-  height: 2px;
-  margin-top: -1px;
+  height: 3px;
+  margin-top: -1.5px;
   background: #9ca3af;
   border-radius: 1px;
   transform: scaleX(0);
