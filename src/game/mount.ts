@@ -1,8 +1,10 @@
 import { haptics } from '../utils/haptics';
 import {
   TOY_STORE_LEVEL,
+  cellsOnSegment,
   farEnd,
   inBounds,
+  sameCell,
   locatePlacements,
   matchWord,
   placementsAtCell,
@@ -103,22 +105,35 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
     }
   }
 
+  const pendingWords = new Set<string>();
+  const flyers: HTMLElement[] = [];
+  const FLY_MS = 480;
+  const FLY_STAGGER = 25;
+
   function renderWords(): void {
     wordsEl.innerHTML = level.words
       .map((word) => {
-        const done = !remaining.has(word);
-        return `<li class="${done ? 'found' : ''}">${escapeHtml(word)}</li>`;
+        const pending = pendingWords.has(word);
+        const done = !remaining.has(word) && !pending;
+        if (pending) {
+          const chars = [...word]
+            .map((ch) => `<span class="ws-ch">${escapeHtml(ch)}</span>`)
+            .join('');
+          return `<li data-word="${escapeHtml(word)}">${chars}</li>`;
+        }
+        return `<li data-word="${escapeHtml(word)}" class="${done ? 'found' : ''}">${escapeHtml(word)}</li>`;
       })
       .join('');
   }
 
   const SVG_NS = 'http://www.w3.org/2000/svg';
   const foundGroup = document.createElementNS(SVG_NS, 'g');
+  const bloomGroup = document.createElementNS(SVG_NS, 'g');
   const liveGroup = document.createElementNS(SVG_NS, 'g');
   const liveLine = document.createElementNS(SVG_NS, 'line');
   liveLine.setAttribute('stroke-linecap', 'round');
   liveGroup.append(liveLine);
-  svgEl.replaceChildren(foundGroup, liveGroup);
+  svgEl.replaceChildren(foundGroup, bloomGroup, liveGroup);
   let paintedFound = -1;
 
   type FailHold = {
@@ -138,6 +153,10 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
   const FAIL_FADE_MS = 260;
   const FAIL_CYCLES = 3.25;
   const FAIL_AMP_CELLS = 0.1;
+  const BLOOM_MS = 280;
+  const BLOOM_TO_CELLS = 1.15;
+  let bloomRaf = 0;
+  const blooms: { el: SVGLineElement; at: number; start: Cell; end: Cell; color: string }[] = [];
   let letterAlongN = 0;
 
   /** Light/scale a cell 0.3 steps before its center (along + 0.3). */
@@ -432,27 +451,151 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
     failRaf = requestAnimationFrame(pumpFail);
   }
 
-  function finishStroke(ok: boolean): void {
-    previewEl.classList.remove('pop');
-    bump(previewEl, 'out');
-    window.setTimeout(() => setPreview('', false), 140);
-    if (!ok) {
-      beginFailFx();
+  function cellsInWordOrder(word: string, start: Cell, end: Cell): Cell[] {
+    const cells = cellsOnSegment(start, end);
+    const fwd = wordOnSegment(level.grid, start, end);
+    if (fwd === word) return cells;
+    if ([...fwd].reverse().join('') === word) return [...cells].reverse();
+    return cells;
+  }
+
+  function clearFlyers(): void {
+    for (const el of flyers) el.remove();
+    flyers.length = 0;
+  }
+
+  function startLetterFlight(word: string, start: Cell, end: Cell): void {
+    pendingWords.add(word);
+    let li = wordsEl.querySelector<HTMLElement>(`[data-word="${word}"]`);
+    if (!li) {
+      renderWords();
+      li = wordsEl.querySelector<HTMLElement>(`[data-word="${word}"]`);
+    }
+    if (li && !li.querySelector('.ws-ch')) {
+      li.classList.remove('found');
+      li.innerHTML = [...word]
+        .map((ch) => `<span class="ws-ch">${escapeHtml(ch)}</span>`)
+        .join('');
+    }
+    const spans = li ? [...li.querySelectorAll<HTMLElement>('.ws-ch')] : [];
+    const cells = cellsInWordOrder(word, start, end);
+    const n = Math.min(spans.length, cells.length);
+    if (!li || n === 0) {
+      pendingWords.delete(word);
+      renderWords();
+      if (remaining.size === 0) {
+        winEl.hidden = false;
+        void haptics.impact('medium');
+      }
       return;
     }
-    renderWords();
-    const word = found[found.length - 1]?.word;
-    const hit = word
-      ? [...wordsEl.querySelectorAll('li')].find((el) => el.textContent === word)
-      : undefined;
-    if (hit) bump(hit, 'just');
+    let landed = 0;
+    for (let i = 0; i < n; i++) {
+      const cell = cells[i]!;
+      const span = spans[i]!;
+      window.setTimeout(() => {
+        if (!span.isConnected) return;
+        const fromEl = cellsEl.querySelector<HTMLElement>(
+          `.ws-cell[data-row="${cell.row}"][data-col="${cell.col}"] .ws-glyph`,
+        );
+        if (!fromEl) {
+          span.classList.add('off');
+          landed += 1;
+          if (landed === n) finishLetterFlight(word, li);
+          return;
+        }
+        const from = fromEl.getBoundingClientRect();
+        const to = span.getBoundingClientRect();
+        const fromSize = parseFloat(getComputedStyle(fromEl).fontSize) || 35;
+        const toSize = parseFloat(getComputedStyle(span).fontSize) || 20;
+        const flyer = document.createElement('span');
+        flyer.className = 'ws-fly';
+        flyer.textContent = span.textContent;
+        flyer.style.left = `${from.left + from.width / 2}px`;
+        flyer.style.top = `${from.top + from.height / 2}px`;
+        flyer.style.fontSize = `${fromSize}px`;
+        document.body.append(flyer);
+        flyers.push(flyer);
+        const dx = to.left + to.width / 2 - (from.left + from.width / 2);
+        const dy = to.top + to.height / 2 - (from.top + from.height / 2);
+        const scale = toSize / fromSize;
+        const anim = flyer.animate(
+          [
+            { transform: 'translate(-50%, -50%) scale(1)' },
+            { transform: `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) scale(${scale})` },
+          ],
+          {
+            duration: FLY_MS,
+            easing: 'cubic-bezier(0.65, 0, 0.35, 1)',
+            fill: 'forwards',
+          },
+        );
+        anim.onfinish = () => {
+          span.classList.add('off');
+          flyer.remove();
+          const idx = flyers.indexOf(flyer);
+          if (idx >= 0) flyers.splice(idx, 1);
+          landed += 1;
+          if (landed === n) finishLetterFlight(word, li);
+        };
+      }, i * FLY_STAGGER);
+    }
+  }
+
+  function finishLetterFlight(word: string, li: HTMLElement): void {
+    pendingWords.delete(word);
+    li.classList.add('found');
     if (remaining.size === 0) {
       winEl.hidden = false;
       void haptics.impact('medium');
     }
   }
 
+  function finishStroke(ok: boolean, cancelled = false): void {
+    previewEl.classList.remove('pop');
+    bump(previewEl, 'out');
+    window.setTimeout(() => setPreview('', false), 140);
+    if (!ok) {
+      if (!cancelled) beginFailFx();
+      return;
+    }
+    const last = found[found.length - 1];
+    if (last) startLetterFlight(last.word, last.start, last.end);
+  }
+
+  function pumpBlooms(now: number): void {
+    bloomRaf = 0;
+    const cellW = 100 / level.size;
+    const w0 = cellW * LINE_WIDTH_CELLS;
+    const w1 = cellW * BLOOM_TO_CELLS;
+    for (let i = blooms.length - 1; i >= 0; i--) {
+      const b = blooms[i]!;
+      const t = Math.min(1, (now - b.at) / BLOOM_MS);
+      const ease = 1 - (1 - t) * (1 - t);
+      const geom = lineGeom(b.start, b.end, false);
+      geom.width = w0 + (w1 - w0) * ease;
+      setLine(b.el, geom, b.color);
+      b.el.setAttribute('opacity', String(1 - t));
+      if (t >= 1) {
+        b.el.remove();
+        blooms.splice(i, 1);
+      }
+    }
+    if (blooms.length > 0) bloomRaf = requestAnimationFrame(pumpBlooms);
+  }
+
+  function spawnBloom(start: Cell, end: Cell, color: string): void {
+    const el = document.createElementNS(SVG_NS, 'line');
+    el.setAttribute('opacity', '1');
+    setLine(el, lineGeom(start, end, true), color);
+    bloomGroup.append(el);
+    const now = performance.now();
+    blooms.push({ el, at: now - 16, start, end, color });
+    pumpBlooms(now);
+  }
+
   function commitFound(word: string, start: Cell, end: Cell): void {
+    spawnBloom(start, end, strokeColor);
     remaining.delete(word);
     found.push({ word, start, end, color: strokeColor });
     void haptics.notification('success');
@@ -461,8 +604,12 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
 
   function tryCommit(): void {
     if (!session) return;
-    if (session.octant === null) {
-      finishStroke(false);
+    if (
+      session.octant === null ||
+      session.along < 1 ||
+      sameCell(session.path.start, session.path.end)
+    ) {
+      finishStroke(false, true);
       return;
     }
     const { start, end } = session.path;
@@ -497,7 +644,7 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
       if (loc) session = moveSwipe(session, loc.x, loc.y, loc.px, level.size);
       tryCommit();
     } else {
-      finishStroke(false);
+      finishStroke(false, true);
     }
     session = null;
     startCandidates = [];
@@ -521,6 +668,12 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
     found.length = 0;
     paintedFound = -1;
     stopFailFx();
+    pendingWords.clear();
+    clearFlyers();
+    if (bloomRaf) cancelAnimationFrame(bloomRaf);
+    bloomRaf = 0;
+    blooms.length = 0;
+    bloomGroup.replaceChildren();
     session = null;
     startCandidates = [];
     stopVisual();
