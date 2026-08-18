@@ -23,7 +23,8 @@ index.html
        → mountWordSearch(#ui-root)
             → model 关卡
             → swipeDesign 手势
-            → pointer + 条/字反馈
+            → tune 设置面板
+            → pointer + 条/字/胶囊反馈
 ```
 
 当前 **不** 创建 WebGPU canvas。
@@ -36,9 +37,11 @@ index.html
     #app
       #stage
         #ui-root.ws-root
-          词表 / 预览浮层 / 棋盘
-            svg.ws-lines   （条，字下面）
-            .ws-cells      （字）
+          .ws-play（词表 + 棋盘，一起缩放）
+            词表 / 预览胶囊 / 棋盘
+              svg.ws-lines   （条，字下面）
+              .ws-cells      （字）
+          .ws-tune           （⚙ 开关）
 #device-switcher / #device-label   (web only)
 ```
 
@@ -63,7 +66,7 @@ Xcode / cap run
 | 划词投影 / 死区 / 换向 / 线宽 | `src/game/swipeDesign.ts` · [SWIPE.md](./SWIPE.md) |
 | 意图识别 | [INTENT.md](./INTENT.md) |
 | 盘面与按下观感 | `src/game/mount.ts` · `src/style.css` |
-| 调参（设置里开关） | `src/game/tune.ts` |
+| 调参（设置里开关） | `src/game/tune.ts` · [TUNE.md](./TUNE.md) |
 | 关卡 | `src/game/model.ts` |
 | base / 端口 | `vite.config.ts` |
 | appId / 显示名 | `capacitor.config.ts` |

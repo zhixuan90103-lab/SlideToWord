@@ -135,10 +135,8 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
           session.path.end,
           strokeColor,
           true,
-          session.alongVisual,
-          session.visualStep.row !== 0 || session.visualStep.col !== 0
-            ? session.visualStep
-            : session.step,
+          session.along,
+          session.step,
         ),
       );
     }

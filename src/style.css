@@ -413,7 +413,10 @@ button:active {
   position: absolute;
   left: 50%;
   top: 0;
-  transform: translate(-50%, -50%);
+  transform: translate(
+    calc(-50% + var(--ws-preview-x, 0px)),
+    calc(-50% + var(--ws-preview-y, 24px))
+  );
   margin: 0;
   min-width: 28px;
   min-height: 26px;
@@ -457,6 +460,7 @@ button:active {
   width: 100%;
   aspect-ratio: 1;
   max-height: 100%;
+  transform: translate(var(--ws-board-x, 0px), var(--ws-board-y, 30px));
   background: #fff;
   border-radius: 16px;
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.14);
@@ -509,16 +513,28 @@ button:active {
 
 @keyframes ws-preview-pop {
   0% {
-    transform: translate(-50%, -50%) scale(0.82);
+    transform: translate(
+        calc(-50% + var(--ws-preview-x, 0px)),
+        calc(-50% + var(--ws-preview-y, 24px))
+      )
+      scale(0.82);
   }
   100% {
-    transform: translate(-50%, -50%) scale(1);
+    transform: translate(
+        calc(-50% + var(--ws-preview-x, 0px)),
+        calc(-50% + var(--ws-preview-y, 24px))
+      )
+      scale(1);
   }
 }
 
 @keyframes ws-preview-out {
   to {
-    transform: translate(-50%, -50%) scale(0.7);
+    transform: translate(
+        calc(-50% + var(--ws-preview-x, 0px)),
+        calc(-50% + var(--ws-preview-y, 24px))
+      )
+      scale(0.7);
     opacity: 0;
   }
 }

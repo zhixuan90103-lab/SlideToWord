@@ -9,7 +9,9 @@
  *        Cause: projected with orthogonal cell size; a (1,1) step counted as 2.
  *        Rule:  along = dot(delta, step) / (cell * |step|^2).
  *
- * Visual stroke length follows the finger along the locked ray (continuous).
+ * Live stroke tip is the finger projected onto the CURRENT ray (recomputed
+ * every sample). Do not carry alongVisual across a step change — (1,0)*t
+ * and (1,1)*t are different Euclidean lengths (BUG 6).
  * Preview letters snap to the nearest cell center (round(along)).
  * Commit slop is speed-split (slow tight / fast loose, overshoot looser).
  * Before the second letter (along < 1) there is no assist: 8-way snaps
@@ -32,7 +34,7 @@ import {
   type Placement,
 } from './model';
 
-export const LOCK_SLOP_CELLS = 0.35;
+export const LOCK_SLOP_CELLS = 0.45;
 /** Second-letter center. Before this: free 8-way. At/after: commit + assist. */
 export const COMMIT_DIR_CELLS = 1;
 export const OCTANT_STEP = Math.PI / 4;
@@ -46,7 +48,6 @@ export const SPEED_SLOW_CELLS_PER_SEC = 4;
 export const ASSIST_SPEED_CELLS_PER_SEC = 10;
 export const LINE_WIDTH_CELLS = 0.75;
 export const COMMIT_LINE_WIDTH_CELLS = 0.7;
-export const ALONG_FOLLOW_TAU = 0.03;
 /** Slow: tight so “3 letters + a bit” is not a 4-letter word. */
 export const END_SLOP_SLOW_UNDER = 0.48;
 export const END_SLOP_SLOW_OVER = 0.38;
@@ -119,11 +120,9 @@ export function octantFromStep(step: Cell): number {
 }
 
 export function tickAlongVisual(session: SwipeSession, now = performance.now()): SwipeSession {
-  const dt = Math.min(0.05, Math.max(0, (now - session.visualAt) / 1000));
-  const kLen = 1 - Math.exp(-dt / ALONG_FOLLOW_TAU);
   return {
     ...session,
-    alongVisual: session.alongVisual + (session.along - session.alongVisual) * kLen,
+    alongVisual: session.along,
     visualStep: session.step,
     visualAt: now,
   };

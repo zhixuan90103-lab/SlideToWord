@@ -7,7 +7,7 @@
 
 **TypeScript + Vite + Capacitor iOS** 竖屏关卡。设计空间 **390×844**，contain letterbox。当前玩法是 DOM 划词，不依赖 WebGPU。
 
-规范真源：[docs/CONVENTIONS.md](./docs/CONVENTIONS.md) · 手势细则：[docs/SWIPE.md](./docs/SWIPE.md) · 意图：[docs/INTENT.md](./docs/INTENT.md)
+规范真源：[docs/CONVENTIONS.md](./docs/CONVENTIONS.md) · 手势：[docs/SWIPE.md](./docs/SWIPE.md) · 意图：[docs/INTENT.md](./docs/INTENT.md) · 调参：[docs/TUNE.md](./docs/TUNE.md)
 
 ## 入口地图
 
@@ -20,6 +20,7 @@
 | 划词规则 / 投影 | `src/game/swipeDesign.ts` |
 | 关卡与词表 | `src/game/model.ts` |
 | 盘面 DOM / 反馈 | `src/game/mount.ts` |
+| 设置调参 | `src/game/tune.ts` |
 | 震动 JS | `src/utils/haptics.ts` |
 | 震动 Swift 真源 | `plugins/native-haptics/*` |
 | 震动怎么接 | `docs/HAPTICS.md` **§0** |
@@ -36,11 +37,12 @@
 ```
 #shell > #viewport > #app > #stage
   #ui-root        ← 所有游戏 UI（safe padding）
-    词表 / 预览浮层 / 棋盘（条在字下）
+    词表 / 预览胶囊 / 棋盘（条在字下）
+    ⚙ 设置 → 调参底板
 #device-switcher  ← 仅桌面预览例外
 ```
 
-棋盘位置固定。预览胶囊、过关字用浮层。
+棋盘与胶囊默认位移见 [docs/TUNE.md](./docs/TUNE.md)。过关字用浮层。
 
 ## 硬性约定
 
@@ -54,7 +56,7 @@
 8. **划词投影只写在 `swipeDesign.ts`**  
 9. **方向用起点中心→手指的 8 向，禁止用矩形邻格抢锁**  
 10. **对角一步 = 1 格**（`along` 按 `\|step\|²` 归一）。**画线 `start + step * along`，step 与投影相同；对角是 `(1,1)`，禁止 `(sin,cos)` 单位向量**（SWIPE BUG 5）  
-11. **死区 0.35 格；方向柔和粘住、可换向，不锁死**（见 INTENT.md）  
+11. **死区 0.45 格。未到第二字不辅助；到达第二字才定方向**（INTENT.md）  
 12. **滑动中线宽 0.75 格；找对留下 0.7 格**  
 13. **按下：本次色不透明、条在字下、字立刻变白并绕字心放大；色排除盘上已有**  
 14. **棋盘不因点击/预览上下位移**
@@ -77,8 +79,8 @@ npx cap run ios --no-sync --target <UDID>
 
 - 关卡：`src/game/model.ts`  
 - 手感：`swipeDesign.ts` + `docs/SWIPE.md`  
-- 意图：`docs/INTENT.md`（先规范后实现）  
-- 观感：`mount.ts` + `style.css`  
+- 意图：`docs/INTENT.md`  
+- 观感 / 调参：`mount.ts` + `style.css` + `tune.ts` + `docs/TUNE.md`  
 - 保留：adapt / haptics / plugins / `base`  
 - 音效：按 `docs/AUDIO.md`；禁止热路径 `new Audio()` / 每发一次桥  
 

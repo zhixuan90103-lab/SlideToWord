@@ -6,6 +6,10 @@ export type Tune = {
   padX: number;
   padY: number;
   boardScale: number;
+  boardX: number;
+  boardY: number;
+  previewX: number;
+  previewY: number;
   pressScale: number;
 };
 
@@ -15,10 +19,14 @@ export const TUNE_DEFAULTS: Tune = {
   padX: 5,
   padY: 5,
   boardScale: 1.05,
+  boardX: 0,
+  boardY: 30,
+  previewX: 0,
+  previewY: 24,
   pressScale: 1.15,
 };
 
-const STORAGE_KEY = 'slidetoword.tune.v2';
+const STORAGE_KEY = 'slidetoword.tune.v4';
 
 type SliderSpec = {
   key: keyof Tune;
@@ -34,6 +42,10 @@ const SLIDERS: SliderSpec[] = [
   { key: 'padX', label: '左右内边距', min: 0, max: 48, step: 1 },
   { key: 'padY', label: '上下内边距', min: 0, max: 56, step: 1 },
   { key: 'boardScale', label: '棋盘大小', min: 0.55, max: 1.6, step: 0.01 },
+  { key: 'boardX', label: '棋盘左右', min: -80, max: 80, step: 1 },
+  { key: 'boardY', label: '棋盘上下', min: -120, max: 120, step: 1 },
+  { key: 'previewX', label: '胶囊左右', min: -80, max: 80, step: 1 },
+  { key: 'previewY', label: '胶囊上下', min: -80, max: 80, step: 1 },
   { key: 'pressScale', label: '按下放大', min: 1, max: 1.8, step: 0.01 },
 ];
 
@@ -74,6 +86,10 @@ export function applyTune(root: HTMLElement, tune: Tune): void {
   s.setProperty('--ws-pad-x', `${tune.padX}px`);
   s.setProperty('--ws-pad-y', `${tune.padY}px`);
   s.setProperty('--ws-board-scale', String(tune.boardScale));
+  s.setProperty('--ws-board-x', `${tune.boardX}px`);
+  s.setProperty('--ws-board-y', `${tune.boardY}px`);
+  s.setProperty('--ws-preview-x', `${tune.previewX}px`);
+  s.setProperty('--ws-preview-y', `${tune.previewY}px`);
   s.setProperty('--ws-press-scale', String(tune.pressScale));
 }
 

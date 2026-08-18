@@ -1,6 +1,6 @@
 # Engineering — portrait-webgpu-base
 
-配套：[AGENTS.md](../AGENTS.md) · [CONVENTIONS.md](./CONVENTIONS.md) · [SWIPE.md](./SWIPE.md) · [INTENT.md](./INTENT.md) · [ENTRYPOINTS.md](./ENTRYPOINTS.md) · [HAPTICS.md](./HAPTICS.md)
+配套：[AGENTS.md](../AGENTS.md) · [CONVENTIONS.md](./CONVENTIONS.md) · [SWIPE.md](./SWIPE.md) · [INTENT.md](./INTENT.md) · [TUNE.md](./TUNE.md) · [ENTRYPOINTS.md](./ENTRYPOINTS.md) · [HAPTICS.md](./HAPTICS.md)
 
 ## 1. 定位
 
