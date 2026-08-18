@@ -21,9 +21,10 @@ portrait-webgpu-base/
 │   ├── create-renderer.ts
 │   ├── style.css
 │   ├── game/
-│   │   ├── swipeDesign.ts  # 划词手势（见 docs/SWIPE.md）
-│   │   ├── model.ts
-│   │   └── mount.ts
+│   │   ├── swipeDesign.ts  # 划词手势 / 意图门（SWIPE + INTENT）
+│   │   ├── model.ts        # 关卡、放置索引
+│   │   ├── mount.ts        # 盘面、合同、成交
+│   │   └── tune.ts         # 设置调参（TUNE.md）
 │   ├── adapt/
 │   │   ├── design.ts       # 390×844 · layout · clientToDesign
 │   │   ├── devicePreview.ts

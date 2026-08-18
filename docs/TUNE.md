@@ -2,7 +2,9 @@
 
 配套：[CONVENTIONS.md](./CONVENTIONS.md) · [SWIPE.md](./SWIPE.md)
 
-真源：`src/game/tune.ts`。右上角 ⚙ 开关，底板挂在 `#ui-root`（禁止 `position: fixed`）。值写入 `localStorage` 键 `slidetoword.tune.v4`。
+真源：`src/game/tune.ts`（默认与滑条范围以代码为准）。右上角 ⚙ 开关，底板挂在 `#ui-root`（禁止 `position: fixed`）。值写入 `localStorage` 键 `slidetoword.tune.v4`。
+
+只调观感：字号、边距、棋盘/胶囊位移、按下放大。**不改**死区、8 向、终点门（那些在 `swipeDesign.ts`）。
 
 「棋盘大小」缩放 `.ws-play`（词表 + 棋盘一起）。棋盘左右/上下只平移 `.ws-board`。胶囊左右/上下只平移 `.ws-preview`。
 

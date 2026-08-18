@@ -32,7 +32,7 @@ cancel→ 丢掉，不认词
 
 几何真源仍只在 `swipeDesign.ts`。`mount.ts` 禁止再写一套投影；只决定：抬手再调一次 `moveSwipe`、何时对候选打分。
 
-滑动中**预览**仍用 `round(along)`（条不吸到词上）。**成交**才走终点门。
+滑动中**条**用当前射线投影（每样本重算，见 [SWIPE.md](./SWIPE.md)「线头怎么量」）。**预览字母**用 `round(along)`。**成交**才走终点门。
 
 ---
 
@@ -125,13 +125,13 @@ cancel→ 丢掉，不认词
 
 ---
 
-## 8. 文件职责（实现时）
+## 8. 文件职责
 
 | 改什么 | 改哪里 |
 |--------|--------|
 | 放置索引、剩余词、字面 `matchWord` | `src/game/model.ts` |
-| 粘住角 / 速度 / 终点门 | `src/game/swipeDesign.ts` + 本文 + [SWIPE.md](./SWIPE.md) |
-| 合同、抬手终点门、预览仍 round | `src/game/mount.ts` |
+| 粘住角 / 速度 / `pickIntentPlacement` / 终点门常数 | `src/game/swipeDesign.ts` + 本文 + [SWIPE.md](./SWIPE.md) |
+| 合同（`pointerup` 再投影）、候选按下、抬手成交 | `src/game/mount.ts` |
 | 观感 | `src/style.css`（仅动画，不投影） |
 | 设置调参 | `src/game/tune.ts` · [TUNE.md](./TUNE.md) |
 
@@ -168,3 +168,5 @@ cancel→ 丢掉，不认词
 | 2026-08-17 | 未到第二字不辅助；到达第二字才定方向并辅助 |
 | 2026-08-18 | 死区 0.45；调参默认见 TUNE.md；文档与代码对齐 |
 | 2026-08-18 | BUG 6：换向线头用当前射线重投影，禁止沿用旧 along |
+| 2026-08-18 | 规范写明：8 向 + 固定起点 + 每样本按当前射线量最近点 |
+| 2026-08-18 | 规范整理：常数表、职责、文档地图与现行实现对齐 |

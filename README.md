@@ -44,4 +44,4 @@ npx cap run ios --no-sync --target <设备 UDID>
 `appId`：`com.zhixuan.slidetoword`  
 `appName`：Slide to Word  
 
-改手势常数只动 `src/game/swipeDesign.ts` 并同步 [SWIPE.md](./docs/SWIPE.md)。改观感默认动 `tune.ts` 并升存储版本，见 [TUNE.md](./docs/TUNE.md)。规范以 [CONVENTIONS.md](./docs/CONVENTIONS.md) 为准。
+划词线头：8 向、起点固定、手指每动按**当前射线**重算最近点，见 [SWIPE.md](./docs/SWIPE.md)。改手势常数只动 `src/game/swipeDesign.ts` 并同步该文档。改观感默认动 `tune.ts` 并升存储版本，见 [TUNE.md](./docs/TUNE.md)。规范以 [CONVENTIONS.md](./docs/CONVENTIONS.md) 为准。
