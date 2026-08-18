@@ -342,6 +342,7 @@ export type DropPiece = {
   letter: string;
   col: number;
   homeRow: number;
+  originRow: number;
   visualRow: number;
   logicalRow: number;
   targetRow: number;
@@ -402,6 +403,7 @@ export function beginDropSim(
       letter: s.letter,
       col: s.from.col,
       homeRow: s.to.row,
+      originRow: s.from.row,
       visualRow: s.from.row,
       logicalRow: s.from.row,
       targetRow: s.from.row,
@@ -448,6 +450,7 @@ function spawnAtTop(sim: DropSim): void {
       letter: next.letter,
       col,
       homeRow: next.homeRow,
+      originRow: -1,
       visualRow: -1,
       logicalRow: -1,
       targetRow: 0,

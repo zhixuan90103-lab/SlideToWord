@@ -583,6 +583,7 @@ body.ws-tune-open .ws-top {
 
 .ws-board.ws-falling .ws-glyph {
   transition: none !important;
+  transform-origin: 50% 100% !important;
 }
 
 .ws-drop-layer {
@@ -617,7 +618,7 @@ body.ws-tune-open .ws-top {
   letter-spacing: 0;
   color: #3f3f46;
   -webkit-font-smoothing: antialiased;
-  transform: translateZ(0) scale(1);
+  transform: none;
   transform-origin: 50% 50%;
   backface-visibility: hidden;
   transition: transform var(--ws-glyph-shrink-ms, 300ms) cubic-bezier(0.22, 0.82, 0.24, 1);

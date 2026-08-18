@@ -18,9 +18,19 @@ import {
   cellsFromFound,
   planNextWave,
   stepDropSim,
-  type DropSim,
   type WavePlan,
 } from './wave';
+import {
+  LAND_MS,
+  POSE_REST,
+  flightStretch,
+  impactFromFall,
+  landCushion,
+  measureRowCenters,
+  offsetY,
+  pose,
+  easeApproach,
+} from './fallFeel';
 import {
   COMMIT_LINE_WIDTH_CELLS,
   LINE_WIDTH_CELLS,
@@ -750,39 +760,65 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
     void runWaveTransition();
   }
 
-  function cellPitch(): number {
-    const el = cellNode(0, 0);
-    return el ? el.getBoundingClientRect().height : 48;
-  }
-
-  function paintFall(sim: DropSim): void {
-    const pitch = cellPitch();
-    const live = new Set(sim.pieces.map((p) => `${p.homeRow},${p.col}`));
-    for (let row = 0; row < level.size; row++) {
-      for (let col = 0; col < level.size; col++) {
-        const glyph = glyphNode(row, col);
-        if (!glyph) continue;
-        if (!live.has(`${row},${col}`)) {
-          glyph.style.visibility = 'hidden';
-          continue;
-        }
-        glyph.style.visibility = '';
-      }
-    }
-    for (const piece of sim.pieces) {
-      const glyph = glyphNode(piece.homeRow, piece.col);
-      if (!glyph) continue;
-      const dy = (piece.visualRow - piece.homeRow) * pitch;
-      glyph.style.transform = dy === 0 ? 'none' : `translateY(${dy}px)`;
-    }
-  }
-
   function playLockedDrop(plan: WavePlan, gen: number): Promise<boolean> {
     const sim = beginDropSim(level.size, plan.survivors, plan.spawns);
     boardEl.classList.add('ws-falling');
-    paintFall(sim);
+    const centers = measureRowCenters(level.size, (row) => cellNode(row, 0)?.getBoundingClientRect() ?? null);
+    const landAt = new Map<number, number>();
+
+    const paint = (now: number): boolean => {
+      const live = new Set(sim.pieces.map((p) => `${p.homeRow},${p.col}`));
+      for (let row = 0; row < level.size; row++) {
+        for (let col = 0; col < level.size; col++) {
+          const glyph = glyphNode(row, col);
+          if (!glyph) continue;
+          glyph.style.visibility = live.has(`${row},${col}`) ? 'visible' : 'hidden';
+        }
+      }
+      let cushioning = false;
+      for (const piece of sim.pieces) {
+        const glyph = glyphNode(piece.homeRow, piece.col);
+        if (!glyph) continue;
+        const shownRow = easeApproach(piece.visualRow, piece.homeRow, piece.targetRow);
+        const flight = offsetY(shownRow, piece.homeRow, centers);
+        const landed = !piece.dropping && piece.visualRow >= piece.homeRow - 1e-4;
+        if (landed && !landAt.has(piece.id)) landAt.set(piece.id, now);
+        const start = landAt.get(piece.id);
+        glyph.style.transformOrigin = '50% 100%';
+        if (start !== undefined) {
+          const u = (now - start) / LAND_MS;
+          if (u < 1) cushioning = true;
+          const hit = impactFromFall(piece.homeRow - piece.originRow);
+          const cush = landCushion(Math.min(1, u), hit);
+          glyph.style.transform = pose(flight + cush.dy, cush.sx, cush.sy);
+        } else {
+          const stretch = flightStretch(piece.dropping);
+          glyph.style.transform = pose(flight, stretch.sx, stretch.sy);
+        }
+      }
+      return cushioning;
+    };
+
+    paint(performance.now());
     return new Promise((resolve) => {
       let last = performance.now();
+      const settle = (ok: boolean): void => {
+        cellsEl.querySelectorAll<HTMLElement>('.ws-glyph').forEach((g) => {
+          g.style.visibility = '';
+          g.style.transform = POSE_REST;
+          g.style.transformOrigin = '50% 100%';
+        });
+        requestAnimationFrame(() => {
+          cellsEl.querySelectorAll<HTMLElement>('.ws-glyph').forEach((g) => {
+            g.style.transform = '';
+            g.style.transformOrigin = '';
+          });
+          requestAnimationFrame(() => {
+            boardEl.classList.remove('ws-falling');
+            resolve(ok);
+          });
+        });
+      };
       const tick = (now: number): void => {
         if (gen !== waveGen) {
           boardEl.classList.remove('ws-falling');
@@ -791,19 +827,12 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
         }
         const busy = stepDropSim(sim, now - last);
         last = now;
-        paintFall(sim);
-        if (busy) {
+        const cushioning = paint(now);
+        if (busy || cushioning) {
           requestAnimationFrame(tick);
           return;
         }
-        cellsEl.querySelectorAll<HTMLElement>('.ws-glyph').forEach((g) => {
-          g.style.visibility = '';
-          g.style.transform = 'none';
-        });
-        requestAnimationFrame(() => {
-          boardEl.classList.remove('ws-falling');
-          resolve(true);
-        });
+        settle(true);
       };
       requestAnimationFrame(tick);
     });

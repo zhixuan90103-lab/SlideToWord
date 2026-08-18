@@ -20,6 +20,7 @@
 | 划词规则 / 投影 | `src/game/swipeDesign.ts` |
 | 关卡与词表 | `src/game/model.ts` |
 | 过波消落补 | `src/game/wave.ts` |
+| 下落缓冲 | `src/game/fallFeel.ts` |
 | 盘面 DOM / 反馈 | `src/game/mount.ts` |
 | 设置调参 | `src/game/tune.ts` |
 | 震动 JS | `src/utils/haptics.ts` |
