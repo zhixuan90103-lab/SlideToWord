@@ -1,12 +1,15 @@
-/** Fall visuals: one pose string, one rAF, no overlay, no WAAPI handoff. */
+/**
+ * Fall pose is always in cell units of the glyph box.
+ * Never use getBoundingClientRect / screen px — `.ws-play` is scaled,
+ * and iOS visual viewport would shear the drop.
+ */
 
 export const LAND_MS = 150;
 
-/** Written while `ws-falling` so we never swap `none` ↔ `translateZ`. */
-export const POSE_REST = 'translateY(0px) scale(1, 1)';
+export const POSE_REST = 'translateY(0) scale(1, 1)';
 
-export function pose(dy: number, sx: number, sy: number): string {
-  return `translateY(${dy.toFixed(2)}px) scale(${sx.toFixed(4)}, ${sy.toFixed(4)})`;
+export function pose(cells: number, sx: number, sy: number): string {
+  return `translateY(${(cells * 100).toFixed(2)}%) scale(${sx.toFixed(4)}, ${sy.toFixed(4)})`;
 }
 
 export function impactFromFall(cells: number): number {
@@ -24,15 +27,14 @@ export function easeApproach(visualRow: number, homeRow: number, targetRow: numb
   return homeRow - (1 - eased);
 }
 
-/** Sink + squash, then ease back. No upward overshoot. */
+/** Sink + squash in cell units, then ease back. No upward overshoot. */
 export function landCushion(u: number, impact: number): { dy: number; sx: number; sy: number } {
-  if (impact <= 0 || u <= 0) return { dy: 0, sx: 1, sy: 1 };
-  if (u >= 1) return { dy: 0, sx: 1, sy: 1 };
+  if (impact <= 0 || u <= 0 || u >= 1) return { dy: 0, sx: 1, sy: 1 };
   const wave = Math.sin(Math.PI * Math.min(1, u));
   const gain = wave * (1 - 0.25 * u);
   const squash = 0.035 * impact * gain;
   return {
-    dy: 3 * impact * gain,
+    dy: 0.07 * impact * gain,
     sx: 1 + squash,
     sy: 1 - squash,
   };
@@ -41,33 +43,4 @@ export function landCushion(u: number, impact: number): { dy: number; sx: number
 export function flightStretch(dropping: boolean): { sx: number; sy: number } {
   if (!dropping) return { sx: 1, sy: 1 };
   return { sx: 0.97, sy: 1.04 };
-}
-
-export function measureRowCenters(size: number, cellBox: (row: number) => DOMRect | null): number[] {
-  const centers: number[] = [];
-  for (let row = 0; row < size; row++) {
-    const box = cellBox(row);
-    if (!box) {
-      centers.push((centers[row - 1] ?? 0) + 48);
-      continue;
-    }
-    centers.push(box.top + box.height / 2);
-  }
-  return centers;
-}
-
-export function offsetY(visualRow: number, homeRow: number, centers: number[]): number {
-  const yAt = (row: number): number => {
-    if (row >= 0 && row < centers.length) return centers[row]!;
-    if (row < 0) {
-      const step = (centers[1] ?? centers[0]! + 48) - centers[0]!;
-      return centers[0]! + row * step;
-    }
-    const last = centers.length - 1;
-    const step = centers[last]! - (centers[last - 1] ?? centers[last]! - 48);
-    return centers[last]! + (row - last) * step;
-  };
-  const i = Math.floor(visualRow);
-  const f = visualRow - i;
-  return yAt(i) + (yAt(i + 1) - yAt(i)) * f - yAt(homeRow);
 }

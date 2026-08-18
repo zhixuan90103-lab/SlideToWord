@@ -12,45 +12,89 @@ import {
 export const WAVE_MIN_WORDS = 3;
 export const WAVE_MAX_WORDS = 6;
 
-/** 3–7 letter uppercase words. Theme does not matter. */
-export const WAVE_LEXICON: readonly string[] = [
-  'ACE', 'AIR', 'ANT', 'ARM', 'ART', 'ASH', 'BAG', 'BAT', 'BED', 'BEE',
-  'BIG', 'BOX', 'BOY', 'BUS', 'CAP', 'CAR', 'CAT', 'COW', 'CUP', 'DAY',
-  'DOG', 'EAR', 'EGG', 'EYE', 'FAN', 'FAR', 'FOX', 'FUN', 'GAP', 'GEM',
-  'GUN', 'HAT', 'HEN', 'HOT', 'ICE', 'INK', 'JAM', 'JAR', 'KEY', 'KID',
-  'LEG', 'LID', 'LIP', 'LOG', 'MAP', 'MIX', 'MUD', 'NET', 'NUT', 'OAK',
-  'OIL', 'OWL', 'PAN', 'PEN', 'PET', 'PIG', 'PIN', 'POT', 'RAT', 'RED',
-  'RUG', 'SAD', 'SEA', 'SKY', 'SUN', 'TEA', 'TIE', 'TOP', 'TOY', 'VAN',
-  'WAR', 'WAX', 'WEB', 'WET', 'ZOO',
-  'AREA', 'BABY', 'BALL', 'BAND', 'BARK', 'BARN', 'BEACH', 'BEAN', 'BEAR',
-  'BELL', 'BELT', 'BIRD', 'BLUE', 'BOAT', 'BOOK', 'CAKE', 'CARD', 'CAVE',
-  'CITY', 'CLAY', 'COIN', 'COLD', 'COOK', 'CORN', 'DARK', 'DEER', 'DESK',
-  'DOLL', 'DOOR', 'DUCK', 'DUST', 'EAST', 'FACE', 'FARM', 'FAST', 'FIRE',
-  'FISH', 'FLAG', 'FLAT', 'FLOW', 'FROG', 'GAME', 'GATE', 'GIFT', 'GIRL',
-  'GOLD', 'GOOD', 'GRIN', 'HAND', 'HILL', 'HOME', 'HOOK', 'HOPE', 'HORN',
-  'JUMP', 'KIND', 'KITE', 'LAKE', 'LAMP', 'LAND', 'LEAF', 'LION', 'LOCK',
-  'LONG', 'LUCK', 'MAIL', 'MOON', 'NEST', 'NOSE', 'NOTE', 'OPEN', 'PARK',
-  'PEAR', 'PINK', 'PLAY', 'POND', 'RAIN', 'RING', 'ROAD', 'ROCK', 'ROOF',
-  'ROSE', 'SAND', 'SEED', 'SHIP', 'SHOE', 'SNOW', 'SOAP', 'STAR', 'TENT',
-  'TIME', 'TREE', 'WAVE', 'WIND', 'WOLF', 'WOOD', 'YARD',
-  'APPLE', 'BEACH', 'BREAD', 'BRICK', 'CANDY', 'CHAIR', 'CLOUD', 'DANCE',
-  'DREAM', 'EAGLE', 'EARTH', 'FIELD', 'FLAME', 'FRUIT', 'GHOST', 'GRAPE',
-  'GRASS', 'GREEN', 'HEART', 'HORSE', 'HOUSE', 'JUICE', 'LEMON', 'LIGHT',
-  'MAGIC', 'MANGO', 'MOUSE', 'MUSIC', 'OCEAN', 'OLIVE', 'PANDA', 'PAPER',
-  'PEACH', 'PEARL', 'PIANO', 'PIZZA', 'PLANT', 'QUEEN', 'RIVER', 'ROBIN',
-  'ROBOT', 'SHELL', 'SHIRT', 'SMILE', 'SNAKE', 'SPACE', 'SPOON', 'STONE',
-  'STORM', 'SUGAR', 'SWEET', 'TABLE', 'TIGER', 'TRAIN', 'WATER', 'WHALE',
-  'WHEEL', 'ZEBRA',
-  'BANANA', 'BOTTLE', 'BRIDGE', 'BUTTON', 'CAMERA', 'CANDLE', 'CASTLE',
-  'CHERRY', 'CIRCLE', 'COOKIE', 'COTTON', 'DRAGON', 'FLOWER', 'FOREST',
-  'GARDEN', 'GUITAR', 'HAMMER', 'ISLAND', 'JACKET', 'KITTEN', 'LADDER',
-  'LETTER', 'MARKET', 'MONKEY', 'ORANGE', 'PENCIL', 'PLANET', 'POCKET',
-  'PUPPET', 'RABBIT', 'ROCKET', 'SCHOOL', 'SHADOW', 'SILVER', 'SOCKET',
-  'SPIDER', 'SPRING', 'SQUARE', 'SUMMER', 'TURTLE', 'WINDOW', 'WINTER',
-  'BLOSSOM', 'DIAMOND', 'DOLPHIN', 'FEATHER', 'HAMMOCK', 'LANTERN',
-  'MUSTARD', 'OCTOPUS', 'PANCAKE', 'PENGUIN', 'RAINBOW', 'THUNDER',
-  'TRIANGLE', 'VOLCANO',
+/** 6 words for 5 waves, then drop by 1 every 5 waves. Floor is 3. */
+export function targetWordCount(wave: number): number {
+  const n = Math.max(1, wave);
+  return Math.max(WAVE_MIN_WORDS, WAVE_MAX_WORDS - Math.floor((n - 1) / 5));
+}
+
+/** After wave 20: 1 word hides a letter. +1 word every 5 waves, max 3. */
+export function maskedHintCount(wave: number): number {
+  if (wave < 20) return 0;
+  return Math.min(3, 1 + Math.floor((wave - 20) / 5));
+}
+
+export type WordTheme = {
+  title: string;
+  words: readonly string[];
+};
+
+/** Pop-style clue: one category per wave. Bonus words still use the full lexicon. */
+export const WAVE_THEMES: readonly WordTheme[] = [
+  {
+    title: 'From the Toy Store',
+    words: ['BALL', 'DOLL', 'KITE', 'TOY', 'GAME', 'BLOCK', 'ROBOT', 'TRAIN', 'PUPPET', 'CARD', 'DICE', 'BEAR'],
+  },
+  {
+    title: 'On the Farm',
+    words: ['COW', 'PIG', 'HEN', 'HAY', 'BARN', 'CORN', 'FARM', 'GOAT', 'HORSE', 'DUCK', 'SEED', 'YARD'],
+  },
+  {
+    title: 'In the Kitchen',
+    words: ['PAN', 'POT', 'CUP', 'TEA', 'CAKE', 'COOK', 'OVEN', 'FORK', 'SPOON', 'BREAD', 'SUGAR', 'PLATE'],
+  },
+  {
+    title: 'Ocean Life',
+    words: ['SEA', 'FISH', 'WAVE', 'BOAT', 'SHIP', 'CRAB', 'REEF', 'SHELL', 'WHALE', 'OCEAN', 'CORAL', 'SHARK'],
+  },
+  {
+    title: 'In the Forest',
+    words: ['TREE', 'LEAF', 'BIRD', 'DEER', 'WOLF', 'BEAR', 'NEST', 'WOOD', 'FROG', 'MOSS', 'PINE', 'OWL'],
+  },
+  {
+    title: 'Weather',
+    words: ['SUN', 'SKY', 'RAIN', 'SNOW', 'WIND', 'HAIL', 'HEAT', 'COLD', 'CLOUD', 'STORM', 'MIST', 'FOG'],
+  },
+  {
+    title: 'Colors',
+    words: ['RED', 'BLUE', 'PINK', 'GOLD', 'GRAY', 'TEAL', 'GREEN', 'BLACK', 'WHITE', 'BROWN', 'IVORY', 'AMBER'],
+  },
+  {
+    title: 'The Body',
+    words: ['ARM', 'LEG', 'EAR', 'EYE', 'LIP', 'HAND', 'NOSE', 'FACE', 'HAIR', 'FOOT', 'NECK', 'SKIN'],
+  },
+  {
+    title: 'Music',
+    words: ['SONG', 'NOTE', 'BAND', 'DRUM', 'BELL', 'TUNE', 'BEAT', 'PIANO', 'GUITAR', 'FLUTE', 'CHOIR', 'MUSIC'],
+  },
+  {
+    title: 'Outer Space',
+    words: ['STAR', 'MOON', 'SUN', 'MARS', 'ROCK', 'ORBIT', 'COMET', 'EARTH', 'SPACE', 'NOVA', 'DUST', 'VOID'],
+  },
+  {
+    title: 'Sweet Snacks',
+    words: ['CAKE', 'PIE', 'JAM', 'NUT', 'CANDY', 'SUGAR', 'COOKIE', 'HONEY', 'COCOA', 'MINT', 'TAFFY', 'FUDGE'],
+  },
+  {
+    title: 'At School',
+    words: ['PEN', 'INK', 'BOOK', 'DESK', 'NOTE', 'EXAM', 'QUIZ', 'PAPER', 'PENCIL', 'CLASS', 'RULER', 'CHALK'],
+  },
 ];
+
+const THEME_WORDS = WAVE_THEMES.flatMap((t) => t.words);
+const BONUS_EXTRA = [
+  'ACE', 'AIR', 'ANT', 'ART', 'ASH', 'BAG', 'BAT', 'BED', 'BEE', 'BIG', 'BOX',
+  'BOY', 'BUS', 'CAP', 'CAR', 'CAT', 'DOG', 'EGG', 'FAN', 'FOX', 'FUN', 'GEM',
+  'HAT', 'HOT', 'ICE', 'JAR', 'KEY', 'KID', 'LOG', 'MAP', 'NET', 'PET', 'PIN',
+  'RAT', 'TOP', 'VAN', 'WEB', 'ZOO', 'BABY', 'BEACH', 'CITY', 'DOOR', 'FIRE',
+  'GIFT', 'HOME', 'JUMP', 'LAKE', 'LAMP', 'LION', 'LOCK', 'PARK', 'PEAR',
+  'PLAY', 'RING', 'ROAD', 'ROSE', 'SHOE', 'STAR', 'TENT', 'TIME', 'APPLE',
+  'CHAIR', 'DANCE', 'HEART', 'HOUSE', 'LEMON', 'LIGHT', 'MOUSE', 'OLIVE',
+  'PAPER', 'PIZZA', 'PLANT', 'RIVER', 'SNAKE', 'STONE', 'TABLE', 'TIGER',
+  'WATER', 'ZEBRA', 'BRIDGE', 'CASTLE', 'FLOWER', 'GARDEN', 'ISLAND', 'KITTEN',
+  'MONKEY', 'ORANGE', 'PLANET', 'RABBIT', 'ROCKET', 'SPIDER', 'SUMMER', 'WINDOW',
+];
+export const WAVE_LEXICON: readonly string[] = [...new Set([...THEME_WORDS, ...BONUS_EXTRA])];
 
 const LETTERS = 'EEEEAAAIIIIOOONNNRRRTTTSSSLLLLCCCCDDDHHUUMMPPGGYYWWFFBBVKJXQZ';
 
@@ -70,6 +114,7 @@ export type SpawnDrop = {
 export type WavePlan = {
   grid: string[][];
   words: string[];
+  theme: string;
   survivors: SurvivorMove[];
   spawns: SpawnDrop[];
   used: Cell[];
@@ -149,16 +194,13 @@ function placementCells(p: Placement): Cell[] {
 
 function fits(grid: string[][], word: string, start: Cell, dir: Cell): boolean {
   const size = grid.length;
-  let empty = 0;
   for (let i = 0; i < word.length; i++) {
     const cell = { row: start.row + dir.row * i, col: start.col + dir.col * i };
     if (!inBounds(cell, size)) return false;
     const cur = grid[cell.row]![cell.col]!;
-    if (cur === '') empty += 1;
-    else if (cur !== word[i]) return false;
+    if (cur !== '' && cur !== word[i]) return false;
   }
-  // Must claim at least one empty cell so we don't stamp RAIN onto TRAIN.
-  return empty > 0;
+  return true;
 }
 
 function writeWord(grid: string[][], word: string, start: Cell, dir: Cell): void {
@@ -167,18 +209,95 @@ function writeWord(grid: string[][], word: string, start: Cell, dir: Cell): void
   }
 }
 
-function tryPlaceWord(grid: string[][], word: string): boolean {
-  const size = grid.length;
-  const starts: Cell[] = [];
-  for (let row = 0; row < size; row++) {
-    for (let col = 0; col < size; col++) starts.push({ row, col });
+type Fit = { start: Cell; dir: Cell; locked: number };
+
+function scoreFit(grid: string[][], word: string, start: Cell, dir: Cell): number {
+  let locked = 0;
+  for (let i = 0; i < word.length; i++) {
+    const cur = grid[start.row + dir.row * i]![start.col + dir.col * i]!;
+    if (cur !== '') locked += 1;
   }
-  const dirs = shuffle(DIRS);
-  for (const start of shuffle(starts)) {
-    for (const dir of dirs) {
-      if (!fits(grid, word, start, dir)) continue;
-      writeWord(grid, word, start, dir);
-      return true;
+  return locked;
+}
+
+function cellsOfWrite(word: string, start: Cell, dir: Cell): Cell[] {
+  const out: Cell[] = [];
+  for (let i = 0; i < word.length; i++) {
+    out.push({ row: start.row + dir.row * i, col: start.col + dir.col * i });
+  }
+  return out;
+}
+
+function collectFits(grid: string[][], word: string, taken?: Set<string>): Fit[] {
+  const size = grid.length;
+  const out: Fit[] = [];
+  for (let row = 0; row < size; row++) {
+    for (let col = 0; col < size; col++) {
+      for (const dir of DIRS) {
+        const start = { row, col };
+        if (!fits(grid, word, start, dir)) continue;
+        const cells = cellsOfWrite(word, start, dir);
+        if (taken && cells.some((c) => taken.has(cellKey(c)))) continue;
+        out.push({ start, dir, locked: scoreFit(grid, word, start, dir) });
+      }
+    }
+  }
+  return out;
+}
+
+type Axis = 'h' | 'v' | 'd';
+
+function axisOf(dir: Cell): Axis {
+  if (dir.row !== 0 && dir.col !== 0) return 'd';
+  return dir.row === 0 ? 'h' : 'v';
+}
+
+/** ≥1 horizontal, vertical, and diagonal when count ≥ 3. Extra slots balance the three. */
+function axisQuota(count: number): Record<Axis, number> {
+  const q: Record<Axis, number> = { h: 0, v: 0, d: 0 };
+  if (count < 3) {
+    q.h = count;
+    return q;
+  }
+  q.h = 1;
+  q.v = 1;
+  q.d = 1;
+  const order = shuffle<Axis>(['h', 'v', 'd']);
+  for (let i = 0; i < count - 3; i++) q[order[i % 3]!] += 1;
+  return q;
+}
+
+function pickFit(fitsList: Fit[], wantLocked: boolean, axis?: Axis): Fit | null {
+  if (fitsList.length === 0) return null;
+  let pool = wantLocked ? fitsList.filter((f) => f.locked > 0) : fitsList.slice();
+  if (axis) pool = pool.filter((f) => axisOf(f.dir) === axis);
+  if (pool.length === 0) return null;
+  pool.sort((a, b) => b.locked - a.locked);
+  const best = pool[0]!.locked;
+  const top = pool.filter((f) => f.locked === best);
+  return top[randInt(top.length)]!;
+}
+
+/** Force a word through a leftover letter so nails get used. */
+function tryPlaceThrough(
+  grid: string[][],
+  cell: Cell,
+  planted: string[],
+  source: readonly string[],
+): boolean {
+  const ch = grid[cell.row]![cell.col]!;
+  if (ch === '') return false;
+  for (const word of shuffle(source)) {
+    if (planted.includes(word) || planted.some((w) => nestedWords(w, word))) continue;
+    for (let i = 0; i < word.length; i++) {
+      if (word[i] !== ch) continue;
+      for (const dir of shuffle(DIRS)) {
+        const start = { row: cell.row - dir.row * i, col: cell.col - dir.col * i };
+        if (!fits(grid, word, start, dir)) continue;
+        writeWord(grid, word, start, dir);
+        planted.push(word);
+        return true;
+      }
     }
   }
   return false;
@@ -196,7 +315,7 @@ function fillEmpties(grid: string[][]): Cell[] {
   return filled;
 }
 
-function pickWaveWords(grid: string[][], planted: string[]): string[] {
+function pickWaveWords(grid: string[][], planted: string[], want: number): string[] {
   const unique = [...new Set(planted)];
   const placements = locatePlacements(grid, unique);
   const byWord = new Map<string, Placement[]>();
@@ -206,37 +325,153 @@ function pickWaveWords(grid: string[][], planted: string[]): string[] {
     byWord.set(p.word, list);
   }
   const found = unique.filter((w) => (byWord.get(w)?.length ?? 0) > 0);
-  found.sort((a, b) => b.length - a.length || byWord.get(a)!.length - byWord.get(b)!.length);
-  const want = WAVE_MIN_WORDS + randInt(WAVE_MAX_WORDS - WAVE_MIN_WORDS + 1);
+  found.sort((a, b) => (want >= 5 ? a.length - b.length : b.length - a.length));
   const chosen: string[] = [];
   const taken = new Set<string>();
-  for (const word of found) {
-    if (chosen.some((w) => nestedWords(w, word))) continue;
-    const place = byWord.get(word)!.find((p) =>
-      placementCells(p).every((cell) => !taken.has(cellKey(cell))),
-    );
-    if (!place) continue;
-    chosen.push(word);
-    for (const cell of placementCells(place)) taken.add(cellKey(cell));
-    if (chosen.length >= want) break;
-  }
+  const have: Record<Axis, number> = { h: 0, v: 0, d: 0 };
+  const quota = axisQuota(want);
+
+  const take = (axis?: Axis): void => {
+    for (const word of found) {
+      if (chosen.length >= want) return;
+      if (axis && have[axis] >= quota[axis]) return;
+      if (chosen.includes(word) || chosen.some((w) => nestedWords(w, word))) continue;
+      const free = byWord.get(word)!.filter((p) =>
+        placementCells(p).every((cell) => !taken.has(cellKey(cell))),
+      );
+      const place = axis ? free.find((p) => axisOf(p.step) === axis) : free[0];
+      if (!place) continue;
+      chosen.push(word);
+      have[axisOf(place.step)] += 1;
+      for (const cell of placementCells(place)) taken.add(cellKey(cell));
+    }
+  };
+
+  for (const axis of shuffle<Axis>(['h', 'v', 'd'])) take(axis);
+  take();
   return chosen;
 }
 
-function plantWords(base: string[][], count: number): { grid: string[][]; words: string[] } | null {
+function leftoverCells(base: string[][]): Cell[] {
+  const out: Cell[] = [];
+  for (let row = 0; row < base.length; row++) {
+    for (let col = 0; col < base.length; col++) {
+      if (base[row]![col]) out.push({ row, col });
+    }
+  }
+  return out;
+}
+
+function markNails(base: string[][], word: string, start: Cell, dir: Cell, into: Set<string>): void {
+  for (let i = 0; i < word.length; i++) {
+    const cell = { row: start.row + dir.row * i, col: start.col + dir.col * i };
+    if (base[cell.row]?.[cell.col]) into.add(cellKey(cell));
+  }
+}
+
+function plantPool(count: number, source: readonly string[]): string[] {
+  const short = source.filter((w) => w.length <= 4);
+  const long = source.filter((w) => w.length > 4);
+  if (count >= 5) return [...shuffle(short), ...shuffle(long)];
+  return shuffle(source);
+}
+
+function pickTheme(avoid?: string): WordTheme {
+  const pool = WAVE_THEMES.filter((t) => t.title !== avoid);
+  const list = pool.length > 0 ? pool : WAVE_THEMES;
+  return list[randInt(list.length)]!;
+}
+
+function plantWords(
+  base: string[][],
+  count: number,
+  source: readonly string[],
+  opts: { requireAxes?: boolean; minCount?: number } = {},
+): { grid: string[][]; words: string[] } | null {
   const grid = cloneGrid(base);
   const planted: string[] = [];
-  for (const word of shuffle(WAVE_LEXICON)) {
-    if (planted.length >= count) break;
-    if (planted.includes(word)) continue;
-    if (planted.some((w) => nestedWords(w, word))) continue;
-    if (tryPlaceWord(grid, word)) planted.push(word);
+  const nails = leftoverCells(base);
+  const usedNails = new Set<string>();
+  const taken = new Set<string>();
+  const pool = plantPool(count, source);
+  const quota = axisQuota(count);
+  const have: Record<Axis, number> = { h: 0, v: 0, d: 0 };
+
+  const tryAxis = (axis: Axis | undefined, preferLocked: boolean): void => {
+    for (const word of pool) {
+      if (planted.length >= count) return;
+      if (axis && have[axis] >= quota[axis]) return;
+      if (planted.includes(word) || planted.some((w) => nestedWords(w, word))) continue;
+      const fit = pickFit(collectFits(grid, word, taken), preferLocked, axis);
+      if (!fit) continue;
+      writeWord(grid, word, fit.start, fit.dir);
+      for (const c of cellsOfWrite(word, fit.start, fit.dir)) taken.add(cellKey(c));
+      markNails(base, word, fit.start, fit.dir, usedNails);
+      planted.push(word);
+      have[axisOf(fit.dir)] += 1;
+    }
+  };
+
+  const fillAxes = (preferLocked: boolean): void => {
+    for (const axis of shuffle<Axis>(['h', 'v', 'd'])) tryAxis(axis, preferLocked);
+    tryAxis(undefined, preferLocked);
+  };
+
+  if (nails.length > 0) {
+    fillAxes(true);
+    for (const nail of shuffle(nails)) {
+      if (planted.length >= count) break;
+      if (usedNails.has(cellKey(nail))) continue;
+      const before = planted.length;
+      tryPlaceThrough(grid, nail, planted, source);
+      if (planted.length > before) {
+        const word = planted[planted.length - 1]!;
+        for (const p of locatePlacements(grid, [word])) {
+          markNails(base, word, p.head, p.step, usedNails);
+          for (const c of placementCells(p)) taken.add(cellKey(c));
+        }
+      }
+    }
   }
-  if (planted.length < WAVE_MIN_WORDS) return null;
+
+  fillAxes(false);
+
+  const minCount = opts.minCount ?? count;
+  if (planted.length < minCount) return null;
   fillEmpties(grid);
-  const words = pickWaveWords(grid, planted);
-  if (words.length < WAVE_MIN_WORDS) return null;
+  const words = pickWaveWords(grid, planted, count);
+  if (words.length < minCount) return null;
+  if ((opts.requireAxes ?? true) && words.length >= 3 && !hasAllAxes(grid, words)) return null;
   return { grid, words };
+}
+
+function hasAllAxes(grid: string[][], words: string[]): boolean {
+  const seen: Record<Axis, boolean> = { h: false, v: false, d: false };
+  for (const p of locatePlacements(grid, words)) seen[axisOf(p.step)] = true;
+  return seen.h && seen.v && seen.d;
+}
+
+export function createWaveLevel(size = 6, wave = 1): {
+  id: number;
+  theme: string;
+  size: number;
+  grid: string[][];
+  words: string[];
+} {
+  const want = targetWordCount(wave);
+  const theme = pickTheme();
+  for (let attempt = 0; attempt < 48; attempt++) {
+    const planted = plantWords(emptyGrid(size), want, theme.words);
+    if (!planted) continue;
+    return {
+      id: 1,
+      theme: theme.title,
+      size,
+      grid: planted.grid,
+      words: planted.words,
+    };
+  }
+  throw new Error('wave: could not seed an opening board');
 }
 
 function emptyGrid(size: number): string[][] {
@@ -265,50 +500,56 @@ function spawnsFrom(compact: string[][], filled: string[][]): SpawnDrop[] {
 }
 
 /**
- * Build the next board: compact unused letters, plant 3–6 words, fill the rest.
- * Retries new letters first; full reshuffle is the last resort.
+ * Next board keeps unused letters. Only holes spawn from the top.
+ * Never treat leftover nails as cleared (that made every letter fall again).
  */
-export function planNextWave(grid: string[][], used: Iterable<Cell>): WavePlan {
+export function planNextWave(
+  grid: string[][],
+  used: Iterable<Cell>,
+  wave = 1,
+  avoidTheme?: string,
+): WavePlan {
   const usedCells = [...used];
   const { compact, survivors } = compactColumns(grid, usedCells);
-  const size = grid.length;
-  const targetCount = WAVE_MIN_WORDS + randInt(WAVE_MAX_WORDS - WAVE_MIN_WORDS + 1);
+  const targetCount = targetWordCount(wave);
+  const themes = shuffle(WAVE_THEMES.filter((t) => t.title !== avoidTheme));
+  const order = themes.length > 0 ? themes : [...WAVE_THEMES];
 
-  for (let attempt = 0; attempt < 24; attempt++) {
-    const planted = plantWords(compact, targetCount);
-    if (!planted) continue;
-    return {
-      grid: planted.grid,
-      words: planted.words,
-      survivors,
-      spawns: spawnsFrom(compact, planted.grid),
-      used: usedCells,
-    };
-  }
+  const finish = (planted: { grid: string[][]; words: string[] }, title: string): WavePlan => ({
+    grid: planted.grid,
+    words: planted.words,
+    theme: title,
+    survivors,
+    spawns: spawnsFrom(compact, planted.grid),
+    used: usedCells,
+  });
 
-  for (let attempt = 0; attempt < 24; attempt++) {
-    const planted = plantWords(emptyGrid(size), targetCount);
-    if (!planted) continue;
-    const wiped = usedSet(usedCells);
-    for (let row = 0; row < size; row++) {
-      for (let col = 0; col < size; col++) {
-        wiped.add(cellKey({ row, col }));
-      }
+  for (const theme of order) {
+    for (let attempt = 0; attempt < 10; attempt++) {
+      const planted = plantWords(compact, targetCount, theme.words);
+      if (planted) return finish(planted, theme.title);
     }
-    const allUsed = [...wiped].map((key) => {
-      const [r, c] = key.split(',').map(Number);
-      return { row: r!, col: c! };
-    });
-    return {
-      grid: planted.grid,
-      words: planted.words,
-      survivors: [],
-      spawns: spawnsFrom(emptyGrid(size), planted.grid),
-      used: allUsed,
-    };
   }
 
-  throw new Error('wave: could not seed a playable board');
+  for (const theme of order) {
+    for (let attempt = 0; attempt < 8; attempt++) {
+      const planted = plantWords(compact, targetCount, theme.words, {
+        requireAxes: false,
+        minCount: Math.max(WAVE_MIN_WORDS, targetCount - 1),
+      });
+      if (planted) return finish(planted, theme.title);
+    }
+  }
+
+  for (const theme of order) {
+    const planted = plantWords(compact, targetCount, theme.words, {
+      requireAxes: false,
+      minCount: WAVE_MIN_WORDS,
+    });
+    if (planted) return finish(planted, theme.title);
+  }
+
+  throw new Error('wave: could not seed a playable board on leftovers');
 }
 
 export function cellsFromFound(
@@ -520,4 +761,25 @@ export function stepDropSim(sim: DropSim, dtMs: number): boolean {
   spawnAtTop(sim);
   updateDropping(sim, dt);
   return sim.pieces.some((p) => p.dropping) || sim.queues.some((q) => q.length > 0);
+}
+
+/** Catch up after a hitch without jumping more than ~0.4 cell per inner step. */
+export function advanceDropSim(sim: DropSim, dtMs: number): boolean {
+  const slice = 1000 / 60;
+  let left = Math.min(Math.max(dtMs, 0), 80);
+  let busy = true;
+  while (left > 0) {
+    busy = stepDropSim(sim, Math.min(slice, left));
+    left -= slice;
+    if (!busy) break;
+  }
+  return busy;
+}
+
+export function restDropPieces(sim: DropSim): void {
+  for (const piece of sim.pieces) {
+    piece.visualRow = piece.homeRow;
+    piece.targetRow = piece.homeRow;
+    piece.dropping = false;
+  }
 }

@@ -1,6 +1,5 @@
 import { haptics } from '../utils/haptics';
 import {
-  TOY_STORE_LEVEL,
   cellsOnSegment,
   farEnd,
   inBounds,
@@ -16,18 +15,19 @@ import {
 import {
   beginDropSim,
   cellsFromFound,
+  createWaveLevel,
   planNextWave,
-  stepDropSim,
+  advanceDropSim,
+  restDropPieces,
+  maskedHintCount,
+  WAVE_LEXICON,
   type WavePlan,
 } from './wave';
 import {
   LAND_MS,
-  POSE_REST,
   flightStretch,
   impactFromFall,
   landCushion,
-  measureRowCenters,
-  offsetY,
   pose,
   easeApproach,
 } from './fallFeel';
@@ -57,11 +57,14 @@ const LINE_COLORS = ['#f97316', '#0ea5e9', '#a855f7', '#22c55e', '#e11d48'];
 type Found = { word: string; start: Cell; end: Cell; color: string };
 
 export function mountWordSearch(uiRoot: HTMLElement): () => void {
-  const level: Level = structuredClone(TOY_STORE_LEVEL);
-  const remaining = new Set(level.words);
-  let catalog = locatePlacements(level.grid, level.words);
-  const found: Found[] = [];
+  const level: Level = createWaveLevel(6, 1);
   let waveIndex = 1;
+  const remaining = new Set(level.words);
+  let catalog = locatePlacements(level.grid, WAVE_LEXICON);
+  const found: Found[] = [];
+  const BEST_KEY = 'slidetoword.best.v1';
+  let score = 0;
+  let best = Number(localStorage.getItem(BEST_KEY) || 0) || 0;
   let phase: 'playing' | 'wave' = 'playing';
   let waveGen = 0;
   let session: SwipeSession | null = null;
@@ -72,7 +75,31 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
   let visualRaf = 0;
 
   function livePlacements(): Placement[] {
-    return catalog.filter((p) => remaining.has(p.word));
+    return catalog.filter((p) => !alreadyFound(p.head, p.tail));
+  }
+
+  function alreadyFound(start: Cell, end: Cell): boolean {
+    return found.some(
+      (f) =>
+        (sameCell(f.start, start) && sameCell(f.end, end)) ||
+        (sameCell(f.start, end) && sameCell(f.end, start)),
+    );
+  }
+
+  function addScore(word: string): void {
+    score += word.length * 10;
+    if (score > best) {
+      best = score;
+      localStorage.setItem(BEST_KEY, String(best));
+    }
+    paintScore();
+  }
+
+  function paintScore(): void {
+    const nowEl = uiRoot.querySelector('.ws-hud-now');
+    const bestEl = uiRoot.querySelector('.ws-hud-best');
+    if (nowEl) nowEl.textContent = String(score);
+    if (bestEl) bestEl.textContent = String(best);
   }
 
   function pickStrokeColor(): string {
@@ -86,8 +113,17 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
   uiRoot.innerHTML = `
     <div class="ws-sky" aria-hidden="true"></div>
     <header class="ws-top">
-      <button type="button" class="ws-icon" data-act="reset" aria-label="重置本关">↻</button>
-      <p class="ws-level">Wave ${waveIndex}</p>
+      <button type="button" class="ws-icon" data-act="reset" aria-label="重新开始">↻</button>
+      <div class="ws-hud" aria-label="分数">
+        <div class="ws-hud-card ws-hud-card-best">
+          <span class="ws-hud-label">最高</span>
+          <span class="ws-hud-best">${best}</span>
+        </div>
+        <div class="ws-hud-card ws-hud-card-now">
+          <span class="ws-hud-label">当前</span>
+          <span class="ws-hud-now">${score}</span>
+        </div>
+      </div>
       <button type="button" class="ws-icon ws-icon-gear" data-act="tune" aria-label="设置" aria-expanded="false">⚙</button>
     </header>
     <div class="ws-play">
@@ -113,7 +149,6 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
   const cellsEl = uiRoot.querySelector('.ws-cells') as HTMLElement;
   const boardEl = uiRoot.querySelector('.ws-board') as HTMLElement;
   const svgEl = uiRoot.querySelector('.ws-lines') as SVGSVGElement;
-  const levelEl = uiRoot.querySelector('.ws-level') as HTMLElement;
   const previewEl = uiRoot.querySelector('.ws-preview') as HTMLElement;
   const resetBtn = uiRoot.querySelector('[data-act="reset"]') as HTMLButtonElement;
   const tuneBtn = uiRoot.querySelector('[data-act="tune"]') as HTMLButtonElement;
@@ -136,6 +171,7 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
 
   function buildBoard(grid: string[][]): void {
     cellsEl.style.gridTemplateColumns = `repeat(${level.size}, 1fr)`;
+    cellsEl.style.gridTemplateRows = `repeat(${level.size}, 1fr)`;
     const nodes: HTMLElement[] = [];
     for (let r = 0; r < level.size; r++) {
       for (let c = 0; c < level.size; c++) {
@@ -159,6 +195,31 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
   const flyers: HTMLElement[] = [];
   const FLY_MS = 380;
   const FLY_STAGGER = 25;
+  const hintMasks = new Map<string, number>();
+
+  function rebuildHintMasks(): void {
+    hintMasks.clear();
+    const n = Math.min(maskedHintCount(waveIndex), level.words.length);
+    const order = level.words.slice();
+    for (let i = order.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      const tmp = order[i]!;
+      order[i] = order[j]!;
+      order[j] = tmp;
+    }
+    for (let i = 0; i < n; i++) {
+      const word = order[i]!;
+      const hide =
+        word.length <= 3 ? Math.floor(Math.random() * word.length) : 1 + Math.floor(Math.random() * (word.length - 2));
+      hintMasks.set(word, hide);
+    }
+  }
+
+  function hintLabel(word: string): string {
+    const hide = hintMasks.get(word);
+    if (hide === undefined || !remaining.has(word)) return word;
+    return [...word].map((ch, i) => (i === hide ? '_' : ch)).join('');
+  }
 
   function renderWords(): void {
     wordsEl.innerHTML = level.words
@@ -171,7 +232,7 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
             .join('');
           return `<li data-word="${escapeHtml(word)}">${chars}</li>`;
         }
-        return `<li data-word="${escapeHtml(word)}" class="${done ? 'found' : ''}">${escapeHtml(word)}</li>`;
+        return `<li data-word="${escapeHtml(word)}" class="${done ? 'found' : ''}">${escapeHtml(hintLabel(word))}</li>`;
       })
       .join('');
   }
@@ -604,7 +665,7 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
     maybeStartWave();
   }
 
-  function finishStroke(ok: boolean, cancelled = false): void {
+  function finishStroke(ok: boolean, cancelled = false, flyTarget = true): void {
     previewEl.classList.remove('pop');
     bump(previewEl, 'out');
     window.setTimeout(() => setPreview('', false), 140);
@@ -613,7 +674,8 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
       return;
     }
     const last = found[found.length - 1];
-    if (last) startLetterFlight(last.word, last.start, last.end);
+    if (last && flyTarget) startLetterFlight(last.word, last.start, last.end);
+    else if (ok) maybeStartWave();
   }
 
   function pumpBlooms(now: number): void {
@@ -648,12 +710,18 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
   }
 
   function commitFound(word: string, start: Cell, end: Cell): void {
+    if (alreadyFound(start, end)) {
+      finishStroke(false, true);
+      return;
+    }
     spawnBloom(start, end, strokeColor);
-    remaining.delete(word);
+    const target = remaining.has(word);
+    if (target) remaining.delete(word);
     found.push({ word, start, end, color: strokeColor });
+    addScore(word);
     fireHaptic('find');
     playNoteForCellIndex(lastNoteIndex + 1);
-    finishStroke(true);
+    finishStroke(true, false, target);
   }
 
   function tryCommit(): void {
@@ -667,9 +735,15 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
       return;
     }
     const { start, end } = session.path;
-    const literal = matchWord(wordOnSegment(level.grid, start, end), remaining);
-    if (literal) {
-      commitFound(literal, start, end);
+    const raw = wordOnSegment(level.grid, start, end);
+    const targetHit = matchWord(raw, remaining);
+    if (targetHit) {
+      commitFound(targetHit, start, end);
+      return;
+    }
+    const bonusHit = matchWord(raw, WAVE_LEXICON);
+    if (bonusHit) {
+      commitFound(bonusHit, start, end);
       return;
     }
     const picked = pickIntentPlacement(
@@ -679,7 +753,7 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
       startCandidates,
       session.peakSpeed,
     );
-    if (picked && remaining.has(picked.word)) {
+    if (picked && !alreadyFound(start, farEnd(picked, start))) {
       commitFound(picked.word, start, farEnd(picked, start));
       return;
     }
@@ -749,7 +823,12 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
     plan.words.forEach((w) => remaining.add(w));
     found.length = 0;
     paintedFound = -1;
-    catalog = locatePlacements(level.grid, level.words);
+    catalog = locatePlacements(level.grid, WAVE_LEXICON);
+    if (plan.theme) {
+      level.theme = plan.theme;
+      const themeEl = uiRoot.querySelector('.ws-theme');
+      if (themeEl) themeEl.textContent = plan.theme;
+    }
     foundGroup.replaceChildren();
     foundGroup.style.opacity = '1';
   }
@@ -762,72 +841,76 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
 
   function playLockedDrop(plan: WavePlan, gen: number): Promise<boolean> {
     const sim = beginDropSim(level.size, plan.survivors, plan.spawns);
+    const n = level.size;
+    const layer = document.createElement('div');
+    layer.className = 'ws-drop-layer';
+    boardEl.append(layer);
     boardEl.classList.add('ws-falling');
-    const centers = measureRowCenters(level.size, (row) => cellNode(row, 0)?.getBoundingClientRect() ?? null);
+    const nodes = new Map<number, HTMLElement>();
     const landAt = new Map<number, number>();
 
-    const paint = (now: number): boolean => {
-      const live = new Set(sim.pieces.map((p) => `${p.homeRow},${p.col}`));
-      for (let row = 0; row < level.size; row++) {
-        for (let col = 0; col < level.size; col++) {
-          const glyph = glyphNode(row, col);
-          if (!glyph) continue;
-          glyph.style.visibility = live.has(`${row},${col}`) ? 'visible' : 'hidden';
-        }
-      }
+    const slot = (el: HTMLElement, col: number, row: number): void => {
+      el.style.left = `${(col / n) * 100}%`;
+      el.style.top = `${(row / n) * 100}%`;
+      el.style.width = `${100 / n}%`;
+      el.style.height = `${100 / n}%`;
+    };
+
+    const paint = (now: number, rest: boolean): boolean => {
       let cushioning = false;
       for (const piece of sim.pieces) {
-        const glyph = glyphNode(piece.homeRow, piece.col);
-        if (!glyph) continue;
-        const shownRow = easeApproach(piece.visualRow, piece.homeRow, piece.targetRow);
-        const flight = offsetY(shownRow, piece.homeRow, centers);
+        let el = nodes.get(piece.id);
+        if (!el) {
+          el = document.createElement('span');
+          el.className = 'ws-drop-glyph';
+          el.textContent = piece.letter;
+          layer.append(el);
+          nodes.set(piece.id, el);
+        }
+        const row = rest ? piece.homeRow : easeApproach(piece.visualRow, piece.homeRow, piece.targetRow);
+        slot(el, piece.col, row);
         const landed = !piece.dropping && piece.visualRow >= piece.homeRow - 1e-4;
         if (landed && !landAt.has(piece.id)) landAt.set(piece.id, now);
+        if (rest) {
+          el.style.transform = pose(0, 1, 1);
+          continue;
+        }
         const start = landAt.get(piece.id);
-        glyph.style.transformOrigin = '50% 100%';
         if (start !== undefined) {
           const u = (now - start) / LAND_MS;
           if (u < 1) cushioning = true;
           const hit = impactFromFall(piece.homeRow - piece.originRow);
           const cush = landCushion(Math.min(1, u), hit);
-          glyph.style.transform = pose(flight + cush.dy, cush.sx, cush.sy);
+          el.style.transform = pose(cush.dy, cush.sx, cush.sy);
         } else {
           const stretch = flightStretch(piece.dropping);
-          glyph.style.transform = pose(flight, stretch.sx, stretch.sy);
+          el.style.transform = pose(0, stretch.sx, stretch.sy);
         }
       }
       return cushioning;
     };
 
-    paint(performance.now());
+    paint(performance.now(), false);
     return new Promise((resolve) => {
       let last = performance.now();
+      const teardown = (ok: boolean): void => {
+        layer.remove();
+        boardEl.classList.remove('ws-falling');
+        resolve(ok);
+      };
       const settle = (ok: boolean): void => {
-        cellsEl.querySelectorAll<HTMLElement>('.ws-glyph').forEach((g) => {
-          g.style.visibility = '';
-          g.style.transform = POSE_REST;
-          g.style.transformOrigin = '50% 100%';
-        });
-        requestAnimationFrame(() => {
-          cellsEl.querySelectorAll<HTMLElement>('.ws-glyph').forEach((g) => {
-            g.style.transform = '';
-            g.style.transformOrigin = '';
-          });
-          requestAnimationFrame(() => {
-            boardEl.classList.remove('ws-falling');
-            resolve(ok);
-          });
-        });
+        restDropPieces(sim);
+        paint(performance.now(), true);
+        requestAnimationFrame(() => teardown(ok));
       };
       const tick = (now: number): void => {
         if (gen !== waveGen) {
-          boardEl.classList.remove('ws-falling');
-          resolve(false);
+          teardown(false);
           return;
         }
-        const busy = stepDropSim(sim, now - last);
+        const busy = advanceDropSim(sim, now - last);
         last = now;
-        const cushioning = paint(now);
+        const cushioning = paint(now, false);
         if (busy || cushioning) {
           requestAnimationFrame(tick);
           return;
@@ -847,7 +930,7 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
     stopFailFx();
 
     const used = cellsFromFound(found, cellsOnSegment);
-    const plan = planNextWave(level.grid, used);
+    const plan = planNextWave(level.grid, used, waveIndex + 1, level.theme);
 
     foundGroup.style.transition = 'opacity 200ms ease';
     foundGroup.style.opacity = '0';
@@ -871,7 +954,7 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
     await playLockedDrop(plan, gen);
     if (gen !== waveGen) return;
     waveIndex += 1;
-    levelEl.textContent = `Wave ${waveIndex}`;
+    rebuildHintMasks();
     pendingWords.clear();
     renderWords();
     render();
@@ -885,16 +968,20 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
     boardEl.querySelector('.ws-drop-layer')?.remove();
     boardEl.classList.remove('ws-dropping');
     boardEl.classList.remove('ws-falling');
-    const fresh = structuredClone(TOY_STORE_LEVEL);
+    waveIndex = 1;
+    const fresh = createWaveLevel(6, 1);
     level.grid = fresh.grid;
     level.words = fresh.words;
+    level.theme = fresh.theme;
+    const themeEl = uiRoot.querySelector('.ws-theme');
+    if (themeEl) themeEl.textContent = fresh.theme;
     remaining.clear();
     level.words.forEach((w) => remaining.add(w));
-    catalog = locatePlacements(level.grid, level.words);
+    catalog = locatePlacements(level.grid, WAVE_LEXICON);
     found.length = 0;
+    score = 0;
+    paintScore();
     paintedFound = -1;
-    waveIndex = 1;
-    levelEl.textContent = `Wave ${waveIndex}`;
     buildBoard(level.grid);
     stopFailFx();
     pendingWords.clear();
@@ -908,6 +995,7 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
     session = null;
     startCandidates = [];
     stopVisual();
+    rebuildHintMasks();
     renderWords();
     render();
   }

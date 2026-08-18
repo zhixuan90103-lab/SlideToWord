@@ -317,16 +317,63 @@ body.ws-tune-open .ws-top {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  min-height: 36px;
+  gap: 8px;
+  min-height: 52px;
   pointer-events: auto;
 }
 
-.ws-level {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 600;
-  color: #fff;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+.ws-hud {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.ws-hud-card {
+  flex: 1;
+  max-width: 112px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  padding: 5px 8px 6px;
+  border-radius: 12px;
+  line-height: 1.05;
+}
+
+.ws-hud-card-best {
+  background: rgba(255, 248, 230, 0.92);
+  box-shadow: 0 2px 0 rgba(180, 120, 20, 0.18);
+}
+
+.ws-hud-card-now {
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 2px 0 rgba(20, 70, 110, 0.12);
+}
+
+.ws-hud-label {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  color: rgba(55, 65, 81, 0.5);
+}
+
+.ws-hud-card-best .ws-hud-label {
+  color: #c2410c;
+}
+
+.ws-hud-best,
+.ws-hud-now {
+  font-size: 20px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: #1f2937;
+}
+
+.ws-hud-card-best .ws-hud-best {
+  color: #ea580c;
 }
 
 .ws-icon {
@@ -334,6 +381,7 @@ body.ws-tune-open .ws-top {
   height: 36px;
   min-height: 36px;
   padding: 0;
+  border: 0;
   border-radius: 50%;
   background: #f97316;
   color: #fff;
@@ -356,6 +404,10 @@ body.ws-tune-open .ws-top {
   width: 100%;
   transform: scale(var(--ws-board-scale, 1.05));
   transform-origin: top center;
+}
+
+#shell.native .ws-play {
+  transform: none;
 }
 
 .ws-hints {
@@ -573,17 +625,15 @@ body.ws-tune-open .ws-top {
   position: relative;
   min-width: 0;
   min-height: 0;
-  overflow: visible;
-  contain: layout style;
+  overflow: hidden;
 }
 
 .ws-cell.ws-clearing .ws-glyph {
   pointer-events: none;
 }
 
-.ws-board.ws-falling .ws-glyph {
-  transition: none !important;
-  transform-origin: 50% 100% !important;
+.ws-board.ws-falling .ws-cells .ws-glyph {
+  visibility: hidden;
 }
 
 .ws-drop-layer {
@@ -603,7 +653,7 @@ body.ws-tune-open .ws-top {
   font-weight: 700;
   letter-spacing: 0;
   color: #3f3f46;
-  transform: none;
+  transform-origin: 50% 100%;
   pointer-events: none;
 }
 
@@ -619,15 +669,11 @@ body.ws-tune-open .ws-top {
   color: #3f3f46;
   -webkit-font-smoothing: antialiased;
   transform: none;
-  transform-origin: 50% 50%;
-  backface-visibility: hidden;
-  transition: transform var(--ws-glyph-shrink-ms, 300ms) cubic-bezier(0.22, 0.82, 0.24, 1);
+  transition: font-size 150ms cubic-bezier(0.22, 0.82, 0.24, 1), color 160ms ease;
 }
 
 .ws-cells.fail-out .ws-glyph {
-  transition:
-    transform var(--ws-glyph-shrink-ms, 300ms) cubic-bezier(0.22, 0.82, 0.24, 1),
-    color 220ms ease;
+  transition: color 220ms ease;
 }
 
 .ws-cell.lit .ws-glyph,
@@ -636,8 +682,7 @@ body.ws-tune-open .ws-top {
 }
 
 .ws-cell.tip .ws-glyph {
-  transform: translateZ(0) scale3d(var(--ws-press-scale, 1.28), var(--ws-press-scale, 1.28), 1);
-  transition: transform var(--ws-glyph-grow-ms, 150ms) cubic-bezier(0.22, 0.82, 0.24, 1);
+  font-size: calc(var(--ws-glyph-size, 35px) * var(--ws-press-scale, 1.28));
 }
 
 @keyframes ws-preview-pop {
