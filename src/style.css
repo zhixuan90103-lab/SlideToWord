@@ -338,13 +338,25 @@ button:active {
   box-shadow: 0 2px 0 rgba(180, 70, 0, 0.35);
 }
 
-.ws-icon-spacer {
-  width: 36px;
-  height: 36px;
+.ws-icon-gear {
+  background: #0ea5e9;
+  box-shadow: 0 2px 0 rgba(12, 90, 130, 0.35);
+  font-size: 16px;
+}
+
+.ws-play {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  transform: scale(var(--ws-board-scale, 1.05));
+  transform-origin: top center;
 }
 
 .ws-hints {
   pointer-events: none;
+  width: 100%;
   background: #fff;
   border-radius: 14px;
   overflow: hidden;
@@ -372,7 +384,7 @@ button:active {
 }
 
 .ws-words li {
-  font-size: 20px;
+  font-size: var(--ws-word-size, 20px);
   font-weight: 800;
   letter-spacing: 0.08em;
   color: #2b2b2b;
@@ -436,6 +448,7 @@ button:active {
   justify-content: center;
   min-height: 0;
   padding-top: 16px;
+  overflow: visible;
 }
 
 .ws-board {
@@ -457,7 +470,7 @@ button:active {
   display: grid;
   width: 100%;
   height: 100%;
-  padding: 10px 8px;
+  padding: var(--ws-pad-y, 5px) var(--ws-pad-x, 5px);
   pointer-events: none;
 }
 
@@ -470,7 +483,7 @@ button:active {
 .ws-glyph {
   display: block;
   line-height: 1;
-  font-size: 28px;
+  font-size: var(--ws-glyph-size, 35px);
   font-weight: 700;
   letter-spacing: 0;
   color: #3f3f46;
@@ -481,15 +494,15 @@ button:active {
 
 .ws-cell.hot .ws-glyph {
   color: #fff;
-  transform: scale(1.14);
+  transform: scale(var(--ws-press-scale, 1.15));
 }
 
 .ws-lines {
   position: absolute;
   z-index: 0;
-  inset: 10px 8px;
-  width: calc(100% - 16px);
-  height: calc(100% - 20px);
+  inset: var(--ws-pad-y, 5px) var(--ws-pad-x, 5px);
+  width: calc(100% - 2 * var(--ws-pad-x, 5px));
+  height: calc(100% - 2 * var(--ws-pad-y, 5px));
   pointer-events: none;
   overflow: visible;
 }
@@ -517,6 +530,96 @@ button:active {
   100% {
     transform: scale(1);
   }
+}
+
+.ws-tune {
+  pointer-events: auto;
+  position: absolute;
+  left: calc(-1 * (var(--safe-left) + var(--ui-pad-x)));
+  right: calc(-1 * (var(--safe-right) + var(--ui-pad-x)));
+  top: calc(-1 * (var(--safe-top) + var(--ui-pad-top)));
+  bottom: calc(-1 * (var(--safe-bottom) + var(--ui-pad-bottom)));
+  z-index: 30;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: rgba(8, 14, 28, 0.42);
+}
+
+.ws-tune[hidden] {
+  display: none;
+}
+
+.ws-tune-sheet {
+  width: 100%;
+  max-height: 72%;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+  background: #fff;
+  border-radius: 18px 18px 0 0;
+  padding: 12px 16px calc(var(--safe-bottom) + 16px);
+  box-shadow: 0 -8px 28px rgba(0, 0, 0, 0.2);
+  color: #1f2937;
+}
+
+.ws-tune-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.ws-tune-head p {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.ws-tune-close {
+  width: 36px;
+  height: 36px;
+  min-height: 36px;
+  padding: 0;
+  border-radius: 50%;
+  background: #e5e7eb;
+  color: #111827;
+  font-size: 16px;
+}
+
+.ws-tune-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-rows: auto auto;
+  gap: 2px 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.ws-tune-label {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.ws-tune-val {
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  color: #6b7280;
+}
+
+.ws-tune-row input[type='range'] {
+  grid-column: 1 / -1;
+  width: 100%;
+  height: 44px;
+  margin: 0;
+  touch-action: none;
+}
+
+.ws-tune-reset {
+  width: 100%;
+  margin-top: 12px;
+  background: #f97316;
+  color: #fff;
 }
 
 .ws-win {

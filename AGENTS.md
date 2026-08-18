@@ -27,7 +27,7 @@
 | 构建 | `vite.config.ts`（**`base: './'`**） |
 | iOS 注入 | `scripts/bootstrap-ios.mjs` |
 | 规范总表 | `docs/CONVENTIONS.md` |
-| 意图识别（未接代码） | `docs/INTENT.md` |
+| 意图识别 | `docs/INTENT.md` · `model.ts` / `swipeDesign.ts` / `mount.ts` |
 | 音效方案（未实现） | `docs/AUDIO.md` |
 | 3D 渲染（现未用） | `src/create-renderer.ts` |
 
@@ -53,7 +53,7 @@
 7. **改 Swift 改 `plugins/native-haptics/`** 再 `ios:bootstrap`  
 8. **划词投影只写在 `swipeDesign.ts`**  
 9. **方向用起点中心→手指的 8 向，禁止用矩形邻格抢锁**  
-10. **对角一步 = 1 格**（`along` 按 `\|step\|²` 归一）  
+10. **对角一步 = 1 格**（`along` 按 `\|step\|²` 归一）。**画线 `start + step * along`，step 与投影相同；对角是 `(1,1)`，禁止 `(sin,cos)` 单位向量**（SWIPE BUG 5）  
 11. **死区 0.35 格；方向柔和粘住、可换向，不锁死**（见 INTENT.md）  
 12. **滑动中线宽 0.75 格；找对留下 0.7 格**  
 13. **按下：本次色不透明、条在字下、字立刻变白并绕字心放大；色排除盘上已有**  

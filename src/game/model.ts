@@ -103,3 +103,81 @@ export function matchWord(raw: string, remaining: Iterable<string>): string | nu
   }
   return null;
 }
+
+/** One straight placement of a word. Reverse swipe is the same placement. */
+export type Placement = {
+  word: string;
+  head: Cell;
+  tail: Cell;
+  step: Cell;
+  steps: number;
+};
+
+export function farEnd(placement: Placement, start: Cell): Cell {
+  return sameCell(start, placement.head) ? placement.tail : placement.head;
+}
+
+export function sameStep(a: Cell, b: Cell): boolean {
+  return a.row === b.row && a.col === b.col;
+}
+
+function placementKey(word: string, a: Cell, b: Cell): string {
+  const ends = [cellKey(a), cellKey(b)].sort();
+  return `${word}:${ends[0]}-${ends[1]}`;
+}
+
+/** All unique straight placements of `words` on `grid` (level-agnostic). */
+export function locatePlacements(grid: string[][], words: Iterable<string>): Placement[] {
+  const size = grid.length;
+  const seen = new Set<string>();
+  const out: Placement[] = [];
+  for (const word of words) {
+    if (word.length < 2) continue;
+    for (let row = 0; row < size; row++) {
+      for (let col = 0; col < size; col++) {
+        for (const dir of DIRS) {
+          const cells: Cell[] = [];
+          let ok = true;
+          for (let i = 0; i < word.length; i++) {
+            const cell = { row: row + dir.row * i, col: col + dir.col * i };
+            if (!inBounds(cell, size) || grid[cell.row][cell.col] !== word[i]) {
+              ok = false;
+              break;
+            }
+            cells.push(cell);
+          }
+          if (!ok) continue;
+          const head = cells[0]!;
+          const tail = cells[cells.length - 1]!;
+          const key = placementKey(word, head, tail);
+          if (seen.has(key)) continue;
+          seen.add(key);
+          out.push({
+            word,
+            head,
+            tail,
+            step: dir,
+            steps: word.length - 1,
+          });
+        }
+      }
+    }
+  }
+  return out;
+}
+
+export function placementsAtCell(placements: readonly Placement[], cell: Cell): Placement[] {
+  return placements.filter((p) => sameCell(p.head, cell) || sameCell(p.tail, cell));
+}
+
+export function alignedPlacements(
+  placements: readonly Placement[],
+  start: Cell,
+  step: Cell,
+): Placement[] {
+  return placements.filter((p) => {
+    const end = farEnd(p, start);
+    const st = unitStep(start, end);
+    return st !== null && sameStep(st, step);
+  });
+}
