@@ -94,6 +94,19 @@ function patchStoryboard() {
   console.log('patched Main.storyboard → BridgeViewController');
 }
 
+function patchSceneDelegate() {
+  const scenePath = path.join(iosAppDir, 'SceneDelegate.swift');
+  if (!fs.existsSync(scenePath)) return;
+  let src = fs.readFileSync(scenePath, 'utf8');
+  if (!src.includes('CAPBridgeViewController()')) return;
+  src = src.replace(
+    'window?.rootViewController = CAPBridgeViewController()',
+    'window?.rootViewController = BridgeViewController()',
+  );
+  fs.writeFileSync(scenePath, src);
+  console.log('patched SceneDelegate → BridgeViewController');
+}
+
 function patchInfoPlistPortrait() {
   if (!fs.existsSync(infoPlistPath)) return;
   let plist = fs.readFileSync(infoPlistPath, 'utf8');
@@ -192,6 +205,7 @@ function main() {
   ensureIosProject();
   copyPluginSources();
   patchStoryboard();
+  patchSceneDelegate();
   patchInfoPlistPortrait();
   patchPbxproj();
   run('npx cap sync ios');

@@ -53,6 +53,8 @@ customClass="BridgeViewController" customModule="App"
 
 不是 `CAPBridgeViewController`，也不是别的 MainViewController。
 
+若存在 `SceneDelegate.swift`，`rootViewController` 必须是 **`BridgeViewController()`**。写成 `CAPBridgeViewController()` 会绕过注册，真机完全没震（iOS WebView 也没有 `navigator.vibrate`）。
+
 4. 这两个 `.swift` 在 Xcode **Compile Sources** 里。
 5. JS 只通过 `src/utils/haptics.ts` 调插件；`jsName` / `registerPlugin` / `isPluginAvailable` 三者都是字符串 **`AdvancedHaptics`**。
 6. 在 **真机 App** 里点 HUD 的 **impact / transient**，马达有反馈。

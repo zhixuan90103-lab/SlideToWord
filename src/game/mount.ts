@@ -24,7 +24,7 @@ import {
   tickAlongVisual,
   type SwipeSession,
 } from './swipeDesign';
-import { mountTunePanel } from './tune';
+import { mountTunePanel, playFindHaptic, playMissHaptic } from './tune';
 
 const LINE_COLORS = ['#f97316', '#0ea5e9', '#a855f7', '#22c55e', '#e11d48'];
 
@@ -90,6 +90,20 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
   const tuneBtn = uiRoot.querySelector('[data-act="tune"]') as HTMLButtonElement;
   const tunePanel = mountTunePanel(uiRoot, tuneBtn);
 
+  function fireHaptic(kind: 'press' | 'tick' | 'find' | 'miss'): void {
+    const t = tunePanel.getTune();
+    if (kind === 'find') {
+      playFindHaptic(t);
+      return;
+    }
+    if (kind === 'miss') {
+      playMissHaptic(t);
+      return;
+    }
+    const pair = kind === 'press' ? [t.hapticPressI, t.hapticPressS] : [t.hapticTickI, t.hapticTickS];
+    void haptics.playTransient(pair[0], pair[1]);
+  }
+
   cellsEl.style.gridTemplateColumns = `repeat(${level.size}, 1fr)`;
   for (let r = 0; r < level.size; r++) {
     for (let c = 0; c < level.size; c++) {
@@ -107,7 +121,7 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
 
   const pendingWords = new Set<string>();
   const flyers: HTMLElement[] = [];
-  const FLY_MS = 480;
+  const FLY_MS = 380;
   const FLY_STAGGER = 25;
 
   function renderWords(): void {
@@ -342,7 +356,7 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
     lastTickKey = `${cell.row},${cell.col}`;
     render();
     setPreview(level.grid[cell.row][cell.col], true);
-    void haptics.selection();
+    fireHaptic('press');
     ev.preventDefault();
     if (!visualRaf) visualRaf = requestAnimationFrame(pumpVisual);
   }
@@ -379,7 +393,7 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
       lastTickKey = key;
       tickCell(tip);
       setPreview(live, true);
-      void haptics.selection();
+      fireHaptic('tick');
     } else {
       setPreview(live, false);
     }
@@ -431,6 +445,7 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
   function beginFailFx(): void {
     if (!session) return;
     stopFailFx();
+    fireHaptic('miss');
     const reached = cellsReachedByLine(
       session.path.start,
       session.step,
@@ -485,7 +500,6 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
       renderWords();
       if (remaining.size === 0) {
         winEl.hidden = false;
-        void haptics.impact('medium');
       }
       return;
     }
@@ -547,7 +561,6 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
     li.classList.add('found');
     if (remaining.size === 0) {
       winEl.hidden = false;
-      void haptics.impact('medium');
     }
   }
 
@@ -598,7 +611,7 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
     spawnBloom(start, end, strokeColor);
     remaining.delete(word);
     found.push({ word, start, end, color: strokeColor });
-    void haptics.notification('success');
+    fireHaptic('find');
     finishStroke(true);
   }
 
