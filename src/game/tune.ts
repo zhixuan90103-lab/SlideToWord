@@ -23,10 +23,10 @@ export const TUNE_DEFAULTS: Tune = {
   boardY: 30,
   previewX: 0,
   previewY: 24,
-  pressScale: 1.15,
+  pressScale: 1.28,
 };
 
-const STORAGE_KEY = 'slidetoword.tune.v4';
+const STORAGE_KEY = 'slidetoword.tune.v5';
 
 type SliderSpec = {
   key: keyof Tune;

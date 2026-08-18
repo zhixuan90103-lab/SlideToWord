@@ -2,7 +2,7 @@
 
 配套：[CONVENTIONS.md](./CONVENTIONS.md) · [SWIPE.md](./SWIPE.md)
 
-真源：`src/game/tune.ts`（默认与滑条范围以代码为准）。右上角 ⚙ 开关，底板挂在 `#ui-root`（禁止 `position: fixed`）。值写入 `localStorage` 键 `slidetoword.tune.v4`。
+真源：`src/game/tune.ts`（默认与滑条范围以代码为准）。右上角 ⚙ 开关，底板挂在 `#ui-root`（禁止 `position: fixed`）。值写入 `localStorage` 键 `slidetoword.tune.v5`。
 
 只调观感：字号、边距、棋盘/胶囊位移、按下放大。**不改**死区、8 向、终点门（那些在 `swipeDesign.ts`）。
 
@@ -21,7 +21,7 @@
 | 棋盘上下 | 30 | -120–120 |
 | 胶囊左右 | 0 | -80–80 |
 | 胶囊上下 | 24 | -80–80 |
-| 按下放大 | 1.15 | 1.00–1.80 |
+| 按下放大 | 1.28 | 1.00–1.80 |
 
 改默认：改 `TUNE_DEFAULTS`，并**升 `STORAGE_KEY` 版本**，否则旧本机会继续用缓存。
 

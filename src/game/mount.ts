@@ -2,6 +2,7 @@ import { haptics } from '../utils/haptics';
 import {
   TOY_STORE_LEVEL,
   farEnd,
+  inBounds,
   locatePlacements,
   matchWord,
   placementsAtCell,
@@ -17,7 +18,6 @@ import {
   cellFromLocal,
   moveSwipe,
   octantFromStep,
-  pathCells,
   pickIntentPlacement,
   tickAlongVisual,
   type SwipeSession,
@@ -68,7 +68,9 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
       </div>
       <section class="ws-board-wrap">
         <div class="ws-board" role="application" aria-label="字母盘">
-          <svg class="ws-lines" viewBox="0 0 100 100" preserveAspectRatio="none"></svg>
+          <div class="ws-lines-host" aria-hidden="true">
+            <svg class="ws-lines" viewBox="0 0 100 100" preserveAspectRatio="none"></svg>
+          </div>
           <div class="ws-cells"></div>
         </div>
       </section>
@@ -110,44 +112,121 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
       .join('');
   }
 
-  function svgSeg(start: Cell, end: Cell, color: string, temp: boolean, along?: number, step?: Cell): string {
+  const SVG_NS = 'http://www.w3.org/2000/svg';
+  const foundGroup = document.createElementNS(SVG_NS, 'g');
+  const liveLine = document.createElementNS(SVG_NS, 'line');
+  liveLine.setAttribute('stroke-linecap', 'round');
+  liveLine.setAttribute('opacity', '1');
+  liveLine.style.display = 'none';
+  svgEl.replaceChildren(foundGroup, liveLine);
+  let paintedFound = -1;
+  let letterAlongN = 0;
+
+  /** Light/scale a cell 0.3 steps before its center (along + 0.3). */
+  const LETTER_LEAD_CELLS = 0.3;
+  const LETTER_LEAVE_SLOP = 0.12;
+
+  function stickyAlongN(along: number): number {
+    const raw = Math.floor(along + LETTER_LEAD_CELLS);
+    if (raw > letterAlongN) letterAlongN = raw;
+    else if (along + LETTER_LEAD_CELLS < letterAlongN - LETTER_LEAVE_SLOP) {
+      letterAlongN = raw;
+    }
+    return letterAlongN;
+  }
+
+  function lineGeom(
+    start: Cell,
+    end: Cell,
+    temp: boolean,
+    along?: number,
+    step?: Cell,
+  ): { x1: number; y1: number; x2: number; y2: number; width: number } {
     const n = level.size;
     const x1 = ((start.col + 0.5) / n) * 100;
     const y1 = ((start.row + 0.5) / n) * 100;
     let x2 = ((end.col + 0.5) / n) * 100;
     let y2 = ((end.row + 0.5) / n) * 100;
     if (temp && step && (step.row !== 0 || step.col !== 0)) {
-      // along is grid steps. step must match projection (diag = 1,1), not a unit vector.
       const t = Math.max(0, along ?? 0);
       x2 = ((start.col + 0.5 + step.col * t) / n) * 100;
       y2 = ((start.row + 0.5 + step.row * t) / n) * 100;
     }
-    const width = (100 / n) * (temp ? LINE_WIDTH_CELLS : COMMIT_LINE_WIDTH_CELLS);
-    return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${color}" stroke-width="${width}" stroke-linecap="round" opacity="1"/>`;
+    return {
+      x1,
+      y1,
+      x2,
+      y2,
+      width: (100 / n) * (temp ? LINE_WIDTH_CELLS : COMMIT_LINE_WIDTH_CELLS),
+    };
+  }
+
+  function setLine(
+    el: SVGLineElement,
+    geom: { x1: number; y1: number; x2: number; y2: number; width: number },
+    color: string,
+  ): void {
+    const q = (n: number) => n.toFixed(3);
+    const next = `${q(geom.x1)},${q(geom.y1)},${q(geom.x2)},${q(geom.y2)},${q(geom.width)},${color}`;
+    if (el.dataset.geom === next) return;
+    el.dataset.geom = next;
+    el.setAttribute('x1', q(geom.x1));
+    el.setAttribute('y1', q(geom.y1));
+    el.setAttribute('x2', q(geom.x2));
+    el.setAttribute('y2', q(geom.y2));
+    el.setAttribute('stroke', color);
+    el.setAttribute('stroke-width', q(geom.width));
+    el.setAttribute('stroke-linecap', 'round');
+  }
+
+  function paintFoundLines(): void {
+    if (paintedFound === found.length) return;
+    paintedFound = found.length;
+    foundGroup.replaceChildren(
+      ...found.map((f) => {
+        const el = document.createElementNS(SVG_NS, 'line');
+        setLine(el, lineGeom(f.start, f.end, false), f.color);
+        return el;
+      }),
+    );
+  }
+
+  function paintLiveLine(): void {
+    if (!session) {
+      liveLine.style.display = 'none';
+      return;
+    }
+    liveLine.style.display = '';
+    setLine(
+      liveLine,
+      lineGeom(session.path.start, session.path.end, true, session.along, session.step),
+      strokeColor,
+    );
   }
 
   function render(): void {
-    const parts = found.map((f) => svgSeg(f.start, f.end, f.color, false));
-    if (session) {
-      parts.push(
-        svgSeg(
-          session.path.start,
-          session.path.end,
-          strokeColor,
-          true,
-          session.along,
-          session.step,
-        ),
-      );
-    }
-    svgEl.innerHTML = parts.join('');
+    paintFoundLines();
+    paintLiveLine();
 
-    const active = new Set<string>();
+    const lit = new Set<string>();
+    let tipKey = '';
     if (session) {
-      for (const c of pathCells(session.path)) active.add(`${c.row},${c.col}`);
+      const reached = cellsReachedByLine(
+        session.path.start,
+        session.step,
+        stickyAlongN(session.along),
+        level.size,
+      );
+      for (const c of reached) lit.add(`${c.row},${c.col}`);
+      const tip = reached[reached.length - 1];
+      if (tip) tipKey = `${tip.row},${tip.col}`;
     }
     cellsEl.querySelectorAll<HTMLElement>('.ws-cell').forEach((el) => {
-      el.classList.toggle('hot', active.has(`${el.dataset.row},${el.dataset.col}`));
+      const key = `${el.dataset.row},${el.dataset.col}`;
+      const on = lit.has(key);
+      const tip = key === tipKey;
+      if (el.classList.contains('lit') !== on) el.classList.toggle('lit', on);
+      if (el.classList.contains('tip') !== tip) el.classList.toggle('tip', tip);
     });
   }
 
@@ -204,6 +283,7 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
       prefer = octantFromStep({ row: Math.sign(far.row - cell.row), col: Math.sign(far.col - cell.col) });
     }
     session = beginSwipe(cell, prefer);
+    letterAlongN = 0;
     lastTickKey = `${cell.row},${cell.col}`;
     render();
     setPreview(level.grid[cell.row][cell.col], true);
@@ -232,11 +312,17 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
     session = moveSwipe(session, loc.x, loc.y, loc.px, level.size);
     render();
     const live = wordOnSegment(level.grid, session.path.start, session.path.end);
-    const end = session.path.end;
-    const key = `${end.row},${end.col}`;
+    const reached = cellsReachedByLine(
+      session.path.start,
+      session.step,
+      letterAlongN,
+      level.size,
+    );
+    const tip = reached[reached.length - 1]!;
+    const key = `${tip.row},${tip.col}`;
     if (key !== lastTickKey) {
       lastTickKey = key;
-      tickCell(end);
+      tickCell(tip);
       setPreview(live, true);
       void haptics.selection();
     } else {
@@ -312,6 +398,7 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
     session = null;
     startCandidates = [];
     lastTickKey = '';
+    letterAlongN = 0;
     stopVisual();
     render();
   }
@@ -328,6 +415,7 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
     remaining.clear();
     level.words.forEach((w) => remaining.add(w));
     found.length = 0;
+    paintedFound = -1;
     session = null;
     startCandidates = [];
     stopVisual();
@@ -354,6 +442,19 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
     tunePanel.destroy();
     stopVisual();
   };
+}
+
+/** Cells whose centers the stroke is within 0.3 of (caller passes sticky n). */
+function cellsReachedByLine(start: Cell, step: Cell, along: number, size: number): Cell[] {
+  const out: Cell[] = [start];
+  if (step.row === 0 && step.col === 0) return out;
+  const n = Math.floor(along);
+  for (let i = 1; i <= n; i++) {
+    const cell = { row: start.row + step.row * i, col: start.col + step.col * i };
+    if (!inBounds(cell, size)) break;
+    out.push(cell);
+  }
+  return out;
 }
 
 function escapeHtml(s: string): string {
