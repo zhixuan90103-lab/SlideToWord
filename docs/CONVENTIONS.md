@@ -27,7 +27,7 @@
 | Capacitor | `webDir: dist`；`ios.contentInset: never`；`scrollEnabled: false` |
 | DOM | `#shell > #viewport > #app > #stage > #ui-root` |
 | UI | 只挂 `#ui-root`。禁止玩法 UI `position: fixed` 贴浏览器窗 |
-| 棋盘 | 默认位置见 [TUNE.md](./TUNE.md)。预览胶囊、过关文案用浮层，不得挤开棋盘布局 |
+| 棋盘 | 与词表底板**固定尺寸**，不随词数伸缩。词在底板内居中。预览胶囊用浮层，不得挤开棋盘 |
 | 震动 | 真源 `plugins/native-haptics/`，再 `ios:bootstrap`。**SceneDelegate 必须 `BridgeViewController()`**。接线见 [HAPTICS.md](./HAPTICS.md) |
 | 当前玩法 | DOM 划词，不依赖 WebGPU。`create-renderer.ts` 保留给以后 3D |
 
@@ -35,11 +35,14 @@
 
 ## 2. 玩法
 
-- 盘：`n×n` 字母（现关 6×6，Level 23 玩具店词表）。
-- 词在盘上是 **一条直线**：横、竖、斜，正反都算。不能拐弯。
-- 松手：字面线段 ∈ 未找到词表则收下；否则走 [INTENT.md](./INTENT.md) 终点门（离唯一候选另一端够近则收）。否则丢弃，不惩罚。
-- 词表清空 → 过关。
-- 意图与关卡无关。规范见 [INTENT.md](./INTENT.md)（已接代码）。
+- 盘：`n×n` 字母（6×6）。第一波用手摆的玩具店盘；之后程序生成。
+- 每波 **3～6** 个词。词在盘上是 **一条直线**：横、竖、斜，正反都算。不能拐弯。
+- 松手：字面线段 ∈ 未找到词表则收下；否则走 [INTENT.md](./INTENT.md) 终点门。否则丢掉，不惩罚。无失败、无尽。
+- 本波词表清空且飞字结束后：只用过的字母集体消除；未用字母按列下落（下空才落）；顶上补满；再种 3～6 个直线词。过波时不可划。
+- 下落按 TripleMatch 锁格：目标永远是下一格；`incoming` 占坑；走出 0.22 格才放源格，上面才能跟。匀速。
+- 棋盘 DOM 是 `grid` 的只读投影。过波先写入终局格子，下落只改这些字的 `translateY`；落定清 transform，不换节点。
+- 同一波目标词不得互相包含（禁止 TRAIN + RAIN），也不得共用格子。
+- 意图与关卡无关。规范见 [INTENT.md](./INTENT.md)。过波选词见 `src/game/wave.ts`。
 
 ---
 
@@ -96,6 +99,7 @@
 | 设置调参 | `src/game/tune.ts` + [TUNE.md](./TUNE.md) |
 | 震动接线 | [HAPTICS.md](./HAPTICS.md) · `src/utils/haptics.ts` · `plugins/native-haptics/` |
 | 关卡数据 | `src/game/model.ts`（只供放置索引，禁止特判） |
+| 过波（消 / 落 / 补 / 选词） | `src/game/wave.ts` + `mount.ts` |
 | 启动、预览框 | `src/main.ts` · `src/adapt/*` |
 | 包名 | `capacitor.config.ts`（现 `com.zhixuan.slidetoword` / Slide to Word） |
 

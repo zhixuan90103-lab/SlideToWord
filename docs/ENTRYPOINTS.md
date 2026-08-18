@@ -67,7 +67,8 @@ Xcode / cap run
 | 意图识别（候选 / 终点门） | [INTENT.md](./INTENT.md) · `swipeDesign.pickIntentPlacement` |
 | 盘面与按下观感 | `src/game/mount.ts` · `src/style.css` |
 | 调参（设置里开关） | `src/game/tune.ts` · [TUNE.md](./TUNE.md) |
-| 关卡 | `src/game/model.ts` |
+| 关卡 / 第一波 | `src/game/model.ts` |
+| 过波（消落补、选词） | `src/game/wave.ts` · `mount.ts` |
 | base / 端口 | `vite.config.ts` |
 | appId / 显示名 | `capacitor.config.ts` |
 | 设计分辨率 | `design.ts` + `style.css` `#stage` |

@@ -23,7 +23,8 @@ portrait-webgpu-base/
 │   ├── game/
 │   │   ├── swipeDesign.ts  # 划词手势 / 意图门（SWIPE + INTENT）
 │   │   ├── model.ts        # 关卡、放置索引
-│   │   ├── mount.ts        # 盘面、合同、成交
+│   │   ├── wave.ts         # 过波：压实、补字、种词
+│   │   ├── mount.ts        # 盘面、合同、成交、过波动画
 │   │   └── tune.ts         # 设置调参（TUNE.md）
 │   ├── adapt/
 │   │   ├── design.ts       # 390×844 · layout · clientToDesign

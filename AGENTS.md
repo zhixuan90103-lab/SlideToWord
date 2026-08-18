@@ -19,6 +19,7 @@
 | Safe Area | `src/adapt/safeArea.ts` + `src/style.css` |
 | 划词规则 / 投影 | `src/game/swipeDesign.ts` |
 | 关卡与词表 | `src/game/model.ts` |
+| 过波消落补 | `src/game/wave.ts` |
 | 盘面 DOM / 反馈 | `src/game/mount.ts` |
 | 设置调参 | `src/game/tune.ts` |
 | 震动 JS | `src/utils/haptics.ts` |
@@ -80,7 +81,8 @@ npx cap run ios --no-sync --target <UDID>
 
 ## 业务怎么加
 
-- 关卡：`src/game/model.ts`  
+- 关卡：`src/game/model.ts`（第一波）
+- 过波：`src/game/wave.ts`  
 - 手感：`swipeDesign.ts` + `docs/SWIPE.md`  
 - 意图：`docs/INTENT.md`  
 - 观感 / 调参：`mount.ts` + `style.css` + `tune.ts` + `docs/TUNE.md`  

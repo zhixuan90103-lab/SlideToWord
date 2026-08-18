@@ -14,6 +14,14 @@ import {
   type Placement,
 } from './model';
 import {
+  beginDropSim,
+  cellsFromFound,
+  planNextWave,
+  stepDropSim,
+  type DropSim,
+  type WavePlan,
+} from './wave';
+import {
   COMMIT_LINE_WIDTH_CELLS,
   LINE_WIDTH_CELLS,
   beginSwipe,
@@ -41,8 +49,11 @@ type Found = { word: string; start: Cell; end: Cell; color: string };
 export function mountWordSearch(uiRoot: HTMLElement): () => void {
   const level: Level = structuredClone(TOY_STORE_LEVEL);
   const remaining = new Set(level.words);
-  const catalog = locatePlacements(level.grid, level.words);
+  let catalog = locatePlacements(level.grid, level.words);
   const found: Found[] = [];
+  let waveIndex = 1;
+  let phase: 'playing' | 'wave' = 'playing';
+  let waveGen = 0;
   let session: SwipeSession | null = null;
   let startCandidates: Placement[] = [];
   let strokeColor = LINE_COLORS[0]!;
@@ -66,7 +77,7 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
     <div class="ws-sky" aria-hidden="true"></div>
     <header class="ws-top">
       <button type="button" class="ws-icon" data-act="reset" aria-label="重置本关">↻</button>
-      <p class="ws-level">Level ${level.id}</p>
+      <p class="ws-level">Wave ${waveIndex}</p>
       <button type="button" class="ws-icon ws-icon-gear" data-act="tune" aria-label="设置" aria-expanded="false">⚙</button>
     </header>
     <div class="ws-play">
@@ -86,14 +97,13 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
         </div>
       </section>
     </div>
-    <p class="ws-win" hidden>全部找到</p>
   `;
 
   const wordsEl = uiRoot.querySelector('.ws-words')!;
   const cellsEl = uiRoot.querySelector('.ws-cells') as HTMLElement;
   const boardEl = uiRoot.querySelector('.ws-board') as HTMLElement;
   const svgEl = uiRoot.querySelector('.ws-lines') as SVGSVGElement;
-  const winEl = uiRoot.querySelector('.ws-win') as HTMLElement;
+  const levelEl = uiRoot.querySelector('.ws-level') as HTMLElement;
   const previewEl = uiRoot.querySelector('.ws-preview') as HTMLElement;
   const resetBtn = uiRoot.querySelector('[data-act="reset"]') as HTMLButtonElement;
   const tuneBtn = uiRoot.querySelector('[data-act="tune"]') as HTMLButtonElement;
@@ -114,20 +124,26 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
     void haptics.playTransient(pair[0], pair[1]);
   }
 
-  cellsEl.style.gridTemplateColumns = `repeat(${level.size}, 1fr)`;
-  for (let r = 0; r < level.size; r++) {
-    for (let c = 0; c < level.size; c++) {
-      const cell = document.createElement('div');
-      cell.className = 'ws-cell';
-      cell.dataset.row = String(r);
-      cell.dataset.col = String(c);
-      const glyph = document.createElement('span');
-      glyph.className = 'ws-glyph';
-      glyph.textContent = level.grid[r][c];
-      cell.append(glyph);
-      cellsEl.append(cell);
+  function buildBoard(grid: string[][]): void {
+    cellsEl.style.gridTemplateColumns = `repeat(${level.size}, 1fr)`;
+    const nodes: HTMLElement[] = [];
+    for (let r = 0; r < level.size; r++) {
+      for (let c = 0; c < level.size; c++) {
+        const cell = document.createElement('div');
+        cell.className = 'ws-cell';
+        cell.dataset.row = String(r);
+        cell.dataset.col = String(c);
+        const glyph = document.createElement('span');
+        glyph.className = 'ws-glyph';
+        glyph.textContent = grid[r]![c] || '';
+        cell.append(glyph);
+        nodes.push(cell);
+      }
     }
+    cellsEl.replaceChildren(...nodes);
   }
+
+  buildBoard(level.grid);
 
   const pendingWords = new Set<string>();
   const flyers: HTMLElement[] = [];
@@ -347,6 +363,7 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
   }
 
   function onDown(ev: PointerEvent): void {
+    if (phase !== 'playing') return;
     if (ev.button !== 0 && ev.pointerType === 'mouse') return;
     unlockNoteSfx();
     beginSwipeSfx();
@@ -515,9 +532,7 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
     if (!li || n === 0) {
       pendingWords.delete(word);
       renderWords();
-      if (remaining.size === 0) {
-        winEl.hidden = false;
-      }
+      maybeStartWave();
       return;
     }
     let landed = 0;
@@ -576,9 +591,7 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
   function finishLetterFlight(word: string, li: HTMLElement): void {
     pendingWords.delete(word);
     li.classList.add('found');
-    if (remaining.size === 0) {
-      winEl.hidden = false;
-    }
+    maybeStartWave();
   }
 
   function finishStroke(ok: boolean, cancelled = false): void {
@@ -695,11 +708,165 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
     endPointer(ev, false);
   }
 
-  function reset(): void {
+  function cellNode(row: number, col: number): HTMLElement | null {
+    return cellsEl.querySelector(`.ws-cell[data-row="${row}"][data-col="${col}"]`);
+  }
+
+  function glyphNode(row: number, col: number): HTMLElement | null {
+    return cellNode(row, col)?.querySelector('.ws-glyph') ?? null;
+  }
+
+  function waitMs(ms: number): Promise<void> {
+    return new Promise((resolve) => window.setTimeout(resolve, ms));
+  }
+
+  function animateEl(
+    el: Element,
+    frames: Keyframe[],
+    opts: KeyframeAnimationOptions,
+  ): Promise<void> {
+    return new Promise((resolve) => {
+      const anim = el.animate(frames, { ...opts, fill: 'forwards' });
+      anim.onfinish = () => resolve();
+      anim.oncancel = () => resolve();
+    });
+  }
+
+  function applyWaveModel(plan: WavePlan): void {
+    level.grid = plan.grid;
+    level.words = plan.words;
     remaining.clear();
-    level.words.forEach((w) => remaining.add(w));
+    plan.words.forEach((w) => remaining.add(w));
     found.length = 0;
     paintedFound = -1;
+    catalog = locatePlacements(level.grid, level.words);
+    foundGroup.replaceChildren();
+    foundGroup.style.opacity = '1';
+  }
+
+  function maybeStartWave(): void {
+    if (phase !== 'playing') return;
+    if (remaining.size > 0 || pendingWords.size > 0) return;
+    void runWaveTransition();
+  }
+
+  function cellPitch(): number {
+    const el = cellNode(0, 0);
+    return el ? el.getBoundingClientRect().height : 48;
+  }
+
+  function paintFall(sim: DropSim): void {
+    const pitch = cellPitch();
+    const live = new Set(sim.pieces.map((p) => `${p.homeRow},${p.col}`));
+    for (let row = 0; row < level.size; row++) {
+      for (let col = 0; col < level.size; col++) {
+        const glyph = glyphNode(row, col);
+        if (!glyph) continue;
+        if (!live.has(`${row},${col}`)) {
+          glyph.style.visibility = 'hidden';
+          continue;
+        }
+        glyph.style.visibility = '';
+      }
+    }
+    for (const piece of sim.pieces) {
+      const glyph = glyphNode(piece.homeRow, piece.col);
+      if (!glyph) continue;
+      const dy = (piece.visualRow - piece.homeRow) * pitch;
+      glyph.style.transform = dy === 0 ? 'none' : `translateY(${dy}px)`;
+    }
+  }
+
+  function playLockedDrop(plan: WavePlan, gen: number): Promise<boolean> {
+    const sim = beginDropSim(level.size, plan.survivors, plan.spawns);
+    boardEl.classList.add('ws-falling');
+    paintFall(sim);
+    return new Promise((resolve) => {
+      let last = performance.now();
+      const tick = (now: number): void => {
+        if (gen !== waveGen) {
+          boardEl.classList.remove('ws-falling');
+          resolve(false);
+          return;
+        }
+        const busy = stepDropSim(sim, now - last);
+        last = now;
+        paintFall(sim);
+        if (busy) {
+          requestAnimationFrame(tick);
+          return;
+        }
+        cellsEl.querySelectorAll<HTMLElement>('.ws-glyph').forEach((g) => {
+          g.style.visibility = '';
+          g.style.transform = 'none';
+        });
+        requestAnimationFrame(() => {
+          boardEl.classList.remove('ws-falling');
+          resolve(true);
+        });
+      };
+      requestAnimationFrame(tick);
+    });
+  }
+
+  async function runWaveTransition(): Promise<void> {
+    const gen = waveGen;
+    phase = 'wave';
+    session = null;
+    startCandidates = [];
+    stopVisual();
+    stopFailFx();
+
+    const used = cellsFromFound(found, cellsOnSegment);
+    const plan = planNextWave(level.grid, used);
+
+    foundGroup.style.transition = 'opacity 200ms ease';
+    foundGroup.style.opacity = '0';
+    const pop = used.map((cell) => {
+      const glyph = glyphNode(cell.row, cell.col);
+      if (!glyph) return Promise.resolve();
+      return animateEl(
+        glyph,
+        [
+          { opacity: 1, transform: 'scale(1)' },
+          { opacity: 0, transform: 'scale(0.55)' },
+        ],
+        { duration: 220, easing: 'ease-in' },
+      );
+    });
+    await Promise.all(pop);
+    if (gen !== waveGen) return;
+
+    applyWaveModel(plan);
+    buildBoard(plan.grid);
+    await playLockedDrop(plan, gen);
+    if (gen !== waveGen) return;
+    waveIndex += 1;
+    levelEl.textContent = `Wave ${waveIndex}`;
+    pendingWords.clear();
+    renderWords();
+    render();
+    phase = 'playing';
+    void waitMs(0);
+  }
+
+  function reset(): void {
+    waveGen += 1;
+    phase = 'playing';
+    boardEl.querySelector('.ws-drop-layer')?.remove();
+    boardEl.classList.remove('ws-dropping');
+    boardEl.classList.remove('ws-falling');
+    const fresh = structuredClone(TOY_STORE_LEVEL);
+    level.grid = fresh.grid;
+    level.words = fresh.words;
+    remaining.clear();
+    level.words.forEach((w) => remaining.add(w));
+    catalog = locatePlacements(level.grid, level.words);
+    found.length = 0;
+    paintedFound = -1;
+    waveIndex = 1;
+    levelEl.textContent = `Wave ${waveIndex}`;
+    buildBoard(level.grid);
     stopFailFx();
     pendingWords.clear();
     clearFlyers();
@@ -707,10 +874,11 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
     bloomRaf = 0;
     blooms.length = 0;
     bloomGroup.replaceChildren();
+    foundGroup.replaceChildren();
+    foundGroup.style.opacity = '1';
     session = null;
     startCandidates = [];
     stopVisual();
-    winEl.hidden = true;
     renderWords();
     render();
   }
