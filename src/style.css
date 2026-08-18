@@ -732,6 +732,30 @@ body.ws-tune-open .ws-top {
   font-weight: 700;
 }
 
+.ws-sfx-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 6px 0 2px;
+}
+
+.ws-sfx-chip {
+  min-height: 32px;
+  padding: 0 10px;
+  border-radius: 16px;
+  border: 1px solid #d1d5db;
+  background: #fff;
+  color: #111827;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.ws-sfx-chip.is-on {
+  border-color: #0ea5e9;
+  background: #e0f2fe;
+  color: #0369a1;
+}
+
 .ws-tune-play {
   min-height: 28px;
   padding: 0 10px;

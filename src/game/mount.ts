@@ -25,6 +25,14 @@ import {
   type SwipeSession,
 } from './swipeDesign';
 import { mountTunePanel, playFindHaptic, playMissHaptic } from './tune';
+import {
+  beginSwipeSfx,
+  playMissSfx,
+  playNoteForCellIndex,
+  preloadNoteSfx,
+  releaseNoteSfx,
+  unlockNoteSfx,
+} from '../audio/noteSfx';
 
 const LINE_COLORS = ['#f97316', '#0ea5e9', '#a855f7', '#22c55e', '#e11d48'];
 
@@ -39,6 +47,7 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
   let startCandidates: Placement[] = [];
   let strokeColor = LINE_COLORS[0]!;
   let lastTickKey = '';
+  let lastNoteIndex = 0;
   let visualRaf = 0;
 
   function livePlacements(): Placement[] {
@@ -89,6 +98,7 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
   const resetBtn = uiRoot.querySelector('[data-act="reset"]') as HTMLButtonElement;
   const tuneBtn = uiRoot.querySelector('[data-act="tune"]') as HTMLButtonElement;
   const tunePanel = mountTunePanel(uiRoot, tuneBtn);
+  preloadNoteSfx();
 
   function fireHaptic(kind: 'press' | 'tick' | 'find' | 'miss'): void {
     const t = tunePanel.getTune();
@@ -338,6 +348,8 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
 
   function onDown(ev: PointerEvent): void {
     if (ev.button !== 0 && ev.pointerType === 'mouse') return;
+    unlockNoteSfx();
+    beginSwipeSfx();
     const loc = localOnGrid(ev.clientX, ev.clientY);
     if (!loc) return;
     const cell = cellFromLocal(loc.x, loc.y, loc.px, level.size);
@@ -354,9 +366,11 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
     session = beginSwipe(cell, prefer);
     letterAlongN = 0;
     lastTickKey = `${cell.row},${cell.col}`;
+    lastNoteIndex = 0;
     render();
     setPreview(level.grid[cell.row][cell.col], true);
     fireHaptic('press');
+    playNoteForCellIndex(0);
     ev.preventDefault();
     if (!visualRaf) visualRaf = requestAnimationFrame(pumpVisual);
   }
@@ -394,6 +408,8 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
       tickCell(tip);
       setPreview(live, true);
       fireHaptic('tick');
+      lastNoteIndex = reached.length - 1;
+      playNoteForCellIndex(lastNoteIndex);
     } else {
       setPreview(live, false);
     }
@@ -446,6 +462,7 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
     if (!session) return;
     stopFailFx();
     fireHaptic('miss');
+    playMissSfx(lastNoteIndex);
     const reached = cellsReachedByLine(
       session.path.start,
       session.step,
@@ -612,6 +629,7 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
     remaining.delete(word);
     found.push({ word, start, end, color: strokeColor });
     fireHaptic('find');
+    playNoteForCellIndex(lastNoteIndex + 1);
     finishStroke(true);
   }
 
@@ -662,7 +680,9 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
     session = null;
     startCandidates = [];
     lastTickKey = '';
+    lastNoteIndex = 0;
     letterAlongN = 0;
+    releaseNoteSfx();
     stopVisual();
     render();
   }

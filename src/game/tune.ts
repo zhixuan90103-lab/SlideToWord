@@ -1,6 +1,7 @@
 /** Live knobs for on-device tuning. Persisted in localStorage. */
 
 import { haptics } from '../utils/haptics';
+import { NOTE_SFX_PRESETS, getNoteSfxPreset, previewNoteSfx } from '../audio/noteSfx';
 
 export type Tune = {
   glyphPx: number;
@@ -274,6 +275,18 @@ export function mountTunePanel(
       <div class="ws-tune-body">
         <section class="ws-tune-sec">
           <header class="ws-tune-sec-head">
+            <p>过格音色 · 每次滑动随机</p>
+            <button type="button" class="ws-tune-play" data-sfx-preview>试</button>
+          </header>
+          <div class="ws-sfx-chips" aria-label="随机池">
+            ${NOTE_SFX_PRESETS.map(
+              (p) => `
+            <span class="ws-sfx-chip" data-sfx="${p.id}">${p.label}</span>`,
+            ).join('')}
+          </div>
+        </section>
+        <section class="ws-tune-sec">
+          <header class="ws-tune-sec-head">
             <p>词表底板</p>
           </header>
           ${PANEL_LAYOUT.map(
@@ -347,7 +360,17 @@ export function mountTunePanel(
     void haptics.playTransient(tune[i.key] as number, tune[s.key] as number);
   }
 
+  function syncSfxChips(): void {
+    const cur = getNoteSfxPreset();
+    for (const btn of sheet.querySelectorAll<HTMLButtonElement>('[data-sfx]')) {
+      const on = btn.dataset.sfx === cur;
+      btn.classList.toggle('is-on', on);
+      btn.setAttribute('aria-checked', on ? 'true' : 'false');
+    }
+  }
+
   function syncUi(): void {
+    syncSfxChips();
     for (const spec of [...PANEL_LAYOUT, ...HAPTIC_SLIDERS]) {
       const input = inputs.find((el) => el.dataset.k === spec.key);
       const label = vals.find((el) => el.dataset.k === spec.key);
@@ -437,6 +460,13 @@ export function mountTunePanel(
     if (!btn?.dataset.play) return;
     ev.preventDefault();
     playGroup(btn.dataset.play);
+  });
+  sheet.addEventListener('click', (ev) => {
+    if ((ev.target as HTMLElement).closest('[data-sfx-preview]')) {
+      ev.preventDefault();
+      previewNoteSfx();
+      syncSfxChips();
+    }
   });
   resetBtn.addEventListener('click', onReset);
   syncUi();

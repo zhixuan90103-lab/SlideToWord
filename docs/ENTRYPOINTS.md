@@ -47,7 +47,7 @@ index.html
 
 ## 4. iOS
 
-震动插件 **不会**随 `cap:sync` 自动注册。第一次 / 改插件必须 `ios:bootstrap`。见 [HAPTICS.md §0](./HAPTICS.md)。
+震动插件 **不会**随 `cap:sync` 自动注册。第一次 / 改插件必须 `ios:bootstrap`。SceneDelegate 必须是 `BridgeViewController()`。见 [HAPTICS.md](./HAPTICS.md)。
 
 ```
 ios:bootstrap
@@ -72,4 +72,4 @@ Xcode / cap run
 | appId / 显示名 | `capacitor.config.ts` |
 | 设计分辨率 | `design.ts` + `style.css` `#stage` |
 | 震动原生 | `plugins/native-haptics/*.swift` + bootstrap |
-| 音效（规划） | [AUDIO.md](./AUDIO.md) |
+| 过格音 / 找对音 | `src/audio/noteSfx.ts` · `public/sfx/` · [AUDIO.md](./AUDIO.md) |

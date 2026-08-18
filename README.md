@@ -13,8 +13,8 @@
 | [docs/TUNE.md](./docs/TUNE.md) | 设置调参与现行默认 |
 | [docs/ENGINEERING.md](./docs/ENGINEERING.md) | 适配、构建、安全区 |
 | [docs/ENTRYPOINTS.md](./docs/ENTRYPOINTS.md) | 入口与调用链 |
-| [docs/HAPTICS.md](./docs/HAPTICS.md) | 震动接线 |
-| [docs/AUDIO.md](./docs/AUDIO.md) | 音效方案（未实现） |
+| [docs/HAPTICS.md](./docs/HAPTICS.md) | **震动如何一次接对**（SceneDelegate + 玩法四档） |
+| [docs/AUDIO.md](./docs/AUDIO.md) | 音效方案；过格音已接 `src/audio/noteSfx.ts` |
 | [docs/MERGE.md](./docs/MERGE.md) | 原双工程合并说明（历史） |
 
 ## 上手
@@ -29,7 +29,7 @@ npm run dev
 
 ## 玩法（一句话）
 
-按下字母 → 沿横/竖/斜一条线滑 → 松手若是词表里的词则收下。右上角 ⚙ 可调字号、棋盘与胶囊位置。
+按下字母 → 沿横/竖/斜一条线滑 → 松手若是词表里的词则收下。右上角 ⚙ 可调词表底板高度与震动四档。
 
 ## iOS 真机
 

@@ -12,6 +12,7 @@
 | 几何、死区、8 向、线宽、BUG 规则 | [SWIPE.md](./SWIPE.md) |
 | 候选、第二字定方向、抬手终点门 | [INTENT.md](./INTENT.md) |
 | 设置面板默认与存储键 | [TUNE.md](./TUNE.md) |
+| 震动怎么接、玩法四档 | [HAPTICS.md](./HAPTICS.md) |
 | 启动链、目录、构建 | [ENGINEERING.md](./ENGINEERING.md) · [ENTRYPOINTS.md](./ENTRYPOINTS.md) |
 
 ---
@@ -27,7 +28,7 @@
 | DOM | `#shell > #viewport > #app > #stage > #ui-root` |
 | UI | 只挂 `#ui-root`。禁止玩法 UI `position: fixed` 贴浏览器窗 |
 | 棋盘 | 默认位置见 [TUNE.md](./TUNE.md)。预览胶囊、过关文案用浮层，不得挤开棋盘布局 |
-| 震动 | 改 Swift 改 `plugins/native-haptics/` 再 `ios:bootstrap`。接线见 [HAPTICS.md](./HAPTICS.md) |
+| 震动 | 真源 `plugins/native-haptics/`，再 `ios:bootstrap`。**SceneDelegate 必须 `BridgeViewController()`**。接线见 [HAPTICS.md](./HAPTICS.md) |
 | 当前玩法 | DOM 划词，不依赖 WebGPU。`create-renderer.ts` 保留给以后 3D |
 
 ---
@@ -71,16 +72,17 @@
 
 | 阶段 | 规定 |
 |------|------|
-| 按下 | 本次色、直径 **0.75 格**、透明度 1；条在 **字下面**；按下格立刻变白，字有放大过程（默认 150ms 到 1.28） |
-| 滑动 | 条画到手指在当前射线上的最近点（0.75 格粗）；未到第二字立刻换向，之后过粘住角瞬间切。字变白/放大在条距该格中心 **0.3 格**时（`floor(along + 0.3)`），不是 `round`、也不是等到正中。最远已触发的格白且放大；线上更早的格白且原大（缩小约 300ms）；离开线段的格恢复默认。同一时刻只有一格放大 |
-| 抬手成功 | 同色留下，直径改为 **0.7 格**；另有一道同色条从滑动粗细向外扩散并淡出（280ms）；词按首字母顺序从盘面飞到上方词表（间隔 25ms），落到目标后与词表字号一致，每到一个划掉该字；预览浮层消失 |
-| 抬手失败 | 只划一格 / 死区 / cancel：当取消，无晃动、不震。多格未成词：条停在松手形状，沿条方向衰减晃动，再淡出，并走错误震动（默认真源 [TUNE.md](./TUNE.md)）。字由白收回默认色；词表不动。过关不震。可被下一次按下打断 |
+| 按下 | 本次色、直径 **0.75 格**、条在字下；按下格立刻变白，字 150ms 放到 **1.28**。震动：一记瞬态 |
+| 滑动 | 条跟当前射线最近点（0.75）。字变白/放大在条距格心 **0.3 格**（`floor(along + 0.3)`），不是 `round`。只有最远已触发格放大；线上其余白且原大（缩回 300ms）。过格一记轻瞬态 |
+| 抬手成功 | 条留下 **0.7 格**；同色扩散淡出 280ms（外沿 1.15 格）。词按**单词首字母**顺序从盘面飞到词表（间隔 25ms，飞行 380ms，慢出慢入中间快）；每到一字从左画 3px 划线。预览消失。找对：瞬态 + 间隔 + 持续衰减。过关不震 |
+| 取消 | 只一格 / 死区 / `pointercancel`：条与预览收掉，**不晃、不震** |
+| 抬手错误 | 已划 ≥2 格且不成词：条停在松手形状，沿条方向衰减晃动再淡出；字白收回默认色；三记错误瞬态。可被下一次按下打断 |
 
 颜色：每次按下随机，**排除盘上已留下的色**。
 
-预览胶囊叠在词表与盘之间的缝上（高度 0 的槽）。默认相对缝中心下移 **24px**，可用设置微调。
+词表底板高度 `hintsY`（默认 **0.60**），见 [TUNE.md](./TUNE.md)。预览胶囊不得挤开棋盘；默认相对缝中心下移 24px。
 
-字母默认 **35px**。距格心 0.3 格即放大的当前格 **1.28**（只 `transform` `.ws-glyph`，放大约 150ms、离开缩小约 300ms）。线上其余已达格心的格只变白。观感默认见 [TUNE.md](./TUNE.md)。
+字母默认 35px。条的几何中心 = 格子中心；字形光学中心可以略偏。观感与震动默认见 [TUNE.md](./TUNE.md)。
 
 ---
 
@@ -92,6 +94,7 @@
 | 意图（候选 / 终点门 / 合同） | [INTENT.md](./INTENT.md) · `model.ts` + `mount.ts` + `swipeDesign.ts` |
 | 盘面、词表、DOM 反馈 | `src/game/mount.ts` + `src/style.css` |
 | 设置调参 | `src/game/tune.ts` + [TUNE.md](./TUNE.md) |
+| 震动接线 | [HAPTICS.md](./HAPTICS.md) · `src/utils/haptics.ts` · `plugins/native-haptics/` |
 | 关卡数据 | `src/game/model.ts`（只供放置索引，禁止特判） |
 | 启动、预览框 | `src/main.ts` · `src/adapt/*` |
 | 包名 | `capacitor.config.ts`（现 `com.zhixuan.slidetoword` / Slide to Word） |
