@@ -267,7 +267,7 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
 
   const WORD_EXIT_MS = 180;
   const WORD_EXIT_STAGGER = 24;
-  const WAVE_HOLD_MS = 320;
+  const WAVE_HOLD_MS = 80;
 
   function fadeWordListOut(): Promise<void> {
     const items = [...wordsEl.querySelectorAll<HTMLElement>('li')];
@@ -1197,6 +1197,21 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
     const used = cellsFromFound(found, cellsOnSegment);
     const plan = planNextWave(level.grid, used, waveIndex + 1, level.theme, [...seenThemes]);
 
+    level.words = plan.words;
+    remaining.clear();
+    plan.words.forEach((w) => remaining.add(w));
+    if (plan.theme) {
+      level.theme = plan.theme;
+      seenThemes.add(plan.theme);
+      const themeEl = uiRoot.querySelector('.ws-theme');
+      if (themeEl) themeEl.textContent = plan.theme;
+    }
+    maskAllHints = Boolean(plan.maskAllHints);
+    waveIndex += 1;
+    rebuildHintMasks();
+    pendingWords.clear();
+    renderWords(true);
+
     foundGroup.style.transition = 'opacity 200ms ease';
     foundGroup.style.opacity = '0';
     const pop = used.map((cell) => {
@@ -1218,10 +1233,6 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
     buildBoard(plan.grid);
     await playLockedDrop(plan, gen);
     if (gen !== waveGen) return;
-    waveIndex += 1;
-    rebuildHintMasks();
-    pendingWords.clear();
-    renderWords(true);
     render();
     phase = 'playing';
     void waitMs(0);
