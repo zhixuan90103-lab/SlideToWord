@@ -247,9 +247,6 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
     return [...word].map((ch, i) => (i === hide ? '_' : ch)).join('');
   }
 
-  const WORD_LEAVE_MS = 360;
-  const WORD_LEAVE_STAGGER_MS = 28;
-
   function renderWords(fadeIn = false): void {
     wordsEl.innerHTML = level.words
       .map((word, i) => {
@@ -268,19 +265,11 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
       .join('');
   }
 
-  function leaveWord(li: HTMLElement, index = 0): void {
-    li.classList.remove('ws-word-in');
-    li.style.setProperty('--i', String(index));
-    li.classList.remove('ws-word-leave');
-    void li.offsetWidth;
-    li.classList.add('ws-word-leave');
-  }
-
   function fadeWordListOut(): Promise<void> {
     const items = [...wordsEl.querySelectorAll('li')];
     if (items.length === 0) return Promise.resolve();
-    items.forEach((li, i) => leaveWord(li, i));
-    return waitMs(WORD_LEAVE_MS + Math.max(0, items.length - 1) * WORD_LEAVE_STAGGER_MS);
+    for (const li of items) li.classList.add('ws-word-out');
+    return waitMs(280);
   }
 
   const SVG_NS = 'http://www.w3.org/2000/svg';
@@ -899,8 +888,8 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
   function finishLetterFlight(word: string, li: HTMLElement): void {
     pendingWords.delete(word);
     li.classList.add('found');
-    leaveWord(li, 0);
-    window.setTimeout(() => maybeStartWave(), WORD_LEAVE_MS);
+    li.classList.add('ws-word-out');
+    window.setTimeout(() => maybeStartWave(), 280);
   }
 
   function finishStroke(ok: boolean, cancelled = false, flyTarget = true): void {
