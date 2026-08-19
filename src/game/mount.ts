@@ -265,11 +265,19 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
       .join('');
   }
 
+  const WORD_EXIT_MS = 180;
+  const WORD_EXIT_STAGGER = 24;
+  const WAVE_HOLD_MS = 320;
+
   function fadeWordListOut(): Promise<void> {
-    const items = [...wordsEl.querySelectorAll('li')];
+    const items = [...wordsEl.querySelectorAll<HTMLElement>('li')];
     if (items.length === 0) return Promise.resolve();
-    for (const li of items) li.classList.add('ws-word-out');
-    return waitMs(280);
+    items.forEach((li, i) => {
+      li.style.setProperty('--i', String(i));
+      li.classList.add('ws-word-out');
+    });
+    const last = Math.max(0, items.length - 1);
+    return waitMs(WORD_EXIT_MS + last * WORD_EXIT_STAGGER);
   }
 
   const SVG_NS = 'http://www.w3.org/2000/svg';
@@ -888,8 +896,8 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
   function finishLetterFlight(word: string, li: HTMLElement): void {
     pendingWords.delete(word);
     li.classList.add('found');
-    li.classList.add('ws-word-out');
-    window.setTimeout(() => maybeStartWave(), 280);
+    const hold = remaining.size === 0 ? WAVE_HOLD_MS : 0;
+    window.setTimeout(() => maybeStartWave(), hold);
   }
 
   function finishStroke(ok: boolean, cancelled = false, flyTarget = true): void {
@@ -1198,9 +1206,9 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
         glyph,
         [
           { opacity: 1, transform: 'scale(1)' },
-          { opacity: 0, transform: 'scale(0.55)' },
+          { opacity: 0, transform: 'scale(0.82)' },
         ],
-        { duration: 220, easing: 'ease-in' },
+        { duration: 160, easing: 'ease-in' },
       );
     });
     await Promise.all(pop);

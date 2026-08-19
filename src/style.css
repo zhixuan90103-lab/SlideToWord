@@ -461,24 +461,39 @@ body.ws-tune-open .ws-top {
   color: #2b2b2b;
   text-align: center;
   opacity: 1;
-  transition: opacity 280ms ease;
+  transform-origin: 50% 50%;
 }
 
 .ws-words li.ws-word-in {
-  animation: ws-word-fade-in 320ms ease both;
-  animation-delay: calc(var(--i, 0) * 45ms);
+  animation: ws-word-enter 280ms cubic-bezier(0.22, 0.82, 0.24, 1) both;
+  animation-delay: calc(var(--i, 0) * 32ms);
 }
 
 .ws-words li.ws-word-out {
-  opacity: 0;
+  animation: ws-word-exit 180ms cubic-bezier(0.4, 0, 1, 1) both;
+  animation-delay: calc(var(--i, 0) * 24ms);
+  pointer-events: none;
 }
 
-@keyframes ws-word-fade-in {
+@keyframes ws-word-enter {
   from {
     opacity: 0;
+    transform: translateY(10px) scale(0.92);
   }
   to {
     opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes ws-word-exit {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-5px) scale(0.96);
   }
 }
 
