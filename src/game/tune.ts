@@ -50,8 +50,8 @@ export const TUNE_DEFAULTS: Tune = {
   hintsY: 0.6,
   hapticPressI: 0.55,
   hapticPressS: 0.86,
-  hapticTickI: 0.25,
-  hapticTickS: 0.64,
+  hapticTickI: 0.35,
+  hapticTickS: 0.65,
   hapticFindI: 0.5,
   hapticFindS: 0.3,
   hapticFindGap: 0.05,
@@ -69,7 +69,7 @@ export const TUNE_DEFAULTS: Tune = {
   hapticMiss3S: 0.35,
 };
 
-const STORAGE_KEY = 'slidetoword.tune.v14';
+const STORAGE_KEY = 'slidetoword.tune.v15';
 
 type SliderSpec = {
   key: keyof Tune;

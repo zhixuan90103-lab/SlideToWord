@@ -7,7 +7,7 @@
 
 **TypeScript + Vite + Capacitor iOS** 竖屏关卡。设计空间 **390×844**，contain letterbox。当前玩法是 DOM 划词，不依赖 WebGPU。
 
-规范真源：[docs/CONVENTIONS.md](./docs/CONVENTIONS.md) · 手势：[docs/SWIPE.md](./docs/SWIPE.md) · 意图：[docs/INTENT.md](./docs/INTENT.md) · 调参：[docs/TUNE.md](./docs/TUNE.md) · 震动：[docs/HAPTICS.md](./docs/HAPTICS.md)
+规范真源：[docs/CONVENTIONS.md](./docs/CONVENTIONS.md) · 过波：[docs/WAVE.md](./docs/WAVE.md) · 手势：[docs/SWIPE.md](./docs/SWIPE.md) · 意图：[docs/INTENT.md](./docs/INTENT.md) · 调参：[docs/TUNE.md](./docs/TUNE.md) · 震动：[docs/HAPTICS.md](./docs/HAPTICS.md)
 
 ## 入口地图
 
@@ -17,6 +17,7 @@
 | 设计舞台 | `src/adapt/design.ts` |
 | 设备预览 | `src/adapt/devicePreview.ts` |
 | Safe Area | `src/adapt/safeArea.ts` + `src/style.css` |
+| 禁网页手势 | `src/adapt/lockGestures.ts` |
 | 划词规则 / 投影 | `src/game/swipeDesign.ts` |
 | 关卡与词表 | `src/game/model.ts` |
 | 过波消落补 | `src/game/wave.ts` |
@@ -32,7 +33,8 @@
 | 规范总表 | `docs/CONVENTIONS.md` |
 | 意图识别 | `docs/INTENT.md` · `model.ts` / `swipeDesign.ts` / `mount.ts` |
 | 调参规范 | `docs/TUNE.md` |
-| 音效方案（未实现） | `docs/AUDIO.md` |
+| 过格音 | `src/audio/noteSfx.ts` · [docs/AUDIO.md](./docs/AUDIO.md) |
+| 过波规范 | [docs/WAVE.md](./docs/WAVE.md) |
 | 3D 渲染（现未用） | `src/create-renderer.ts` |
 
 ## DOM（勿拆）
@@ -65,6 +67,7 @@
 14. **按下：本次色不透明、条在字下、按下格立刻变白并有放大过程。字变白/放大在条距该格中心 0.3 格时。线上已触发、手指已离开的格白且原大。色排除盘上已有**  
 15. **预览胶囊不得挤开棋盘布局**；词表底板高度 `hintsY` 默认 0.60，见 TUNE.md  
 16. **震动**：玩法只走 `haptics.ts`。按下/过格瞬态，找对/错误 pattern。取消与过关不震。`prepare()` 不是验收
+17. **单指划词**：第二根手指不改第一条线、不提交。禁双击放大 / 捏合，见 `lockGestures.ts`
 
 ## 命令
 
@@ -82,8 +85,8 @@ npx cap run ios --no-sync --target <UDID>
 
 ## 业务怎么加
 
-- 关卡：`src/game/model.ts`（第一波）
-- 过波：`src/game/wave.ts`  
+- 关卡：`src/game/model.ts`（放置索引）
+- 过波：`src/game/wave.ts` + [docs/WAVE.md](./docs/WAVE.md)  
 - 手感：`swipeDesign.ts` + `docs/SWIPE.md`  
 - 意图：`docs/INTENT.md`  
 - 观感 / 调参：`mount.ts` + `style.css` + `tune.ts` + `docs/TUNE.md`  

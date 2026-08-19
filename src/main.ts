@@ -10,6 +10,7 @@ import {
   type StageLayout,
 } from './adapt/design';
 import { mountDevicePreview } from './adapt/devicePreview';
+import { lockWebGestures } from './adapt/lockGestures';
 import { applyNativeClass, applySafeAreaCssVars } from './adapt/safeArea';
 import { mountWordSearch } from './game/mount';
 
@@ -19,6 +20,7 @@ const stage = document.getElementById('stage')!;
 const uiRoot = document.getElementById('ui-root')!;
 
 function boot(): void {
+  lockWebGestures();
   applyNativeClass();
   applySafeAreaCssVars();
 

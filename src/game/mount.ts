@@ -52,13 +52,26 @@ import {
   unlockNoteSfx,
 } from '../audio/noteSfx';
 
-const LINE_COLORS = ['#f97316', '#0ea5e9', '#a855f7', '#22c55e', '#e11d48'];
+const LINE_COLORS = [
+  '#f97316',
+  '#0ea5e9',
+  '#a855f7',
+  '#22c55e',
+  '#e11d48',
+  '#eab308',
+  '#14b8a6',
+  '#ec4899',
+  '#6366f1',
+  '#84cc16',
+];
 
 type Found = { word: string; start: Cell; end: Cell; color: string };
 
 export function mountWordSearch(uiRoot: HTMLElement): () => void {
   const level: Level = createWaveLevel(6, 1);
   let waveIndex = 1;
+  const seenThemes = new Set<string>([level.theme]);
+  let maskAllHints = false;
   const remaining = new Set(level.words);
   let catalog = locatePlacements(level.grid, WAVE_LEXICON);
   const found: Found[] = [];
@@ -68,6 +81,11 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
   let phase: 'playing' | 'wave' = 'playing';
   let waveGen = 0;
   let session: SwipeSession | null = null;
+  let ownerPointerId: number | null = null;
+  let ownerTouchId: number | null = null;
+  let pointerLost = false;
+  let pendingEnter = false;
+  const liveTouches = new Map<number, { x: number; y: number }>();
   let startCandidates: Placement[] = [];
   let strokeColor = LINE_COLORS[0]!;
   let lastTickKey = '';
@@ -132,7 +150,11 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
         <ul class="ws-words"></ul>
       </section>
       <div class="ws-preview-slot">
-        <p class="ws-preview" hidden></p>
+        <div class="ws-preview-origin">
+          <div class="ws-preview-motion">
+            <p class="ws-preview" hidden></p>
+          </div>
+        </div>
       </div>
       <section class="ws-board-wrap">
         <div class="ws-board" role="application" aria-label="字母盘">
@@ -147,9 +169,11 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
 
   const wordsEl = uiRoot.querySelector('.ws-words')!;
   const cellsEl = uiRoot.querySelector('.ws-cells') as HTMLElement;
+  const playEl = uiRoot.querySelector('.ws-play') as HTMLElement;
   const boardEl = uiRoot.querySelector('.ws-board') as HTMLElement;
   const svgEl = uiRoot.querySelector('.ws-lines') as SVGSVGElement;
   const previewEl = uiRoot.querySelector('.ws-preview') as HTMLElement;
+  const previewMotion = uiRoot.querySelector('.ws-preview-motion') as HTMLElement;
   const resetBtn = uiRoot.querySelector('[data-act="reset"]') as HTMLButtonElement;
   const tuneBtn = uiRoot.querySelector('[data-act="tune"]') as HTMLButtonElement;
   const tunePanel = mountTunePanel(uiRoot, tuneBtn);
@@ -199,7 +223,9 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
 
   function rebuildHintMasks(): void {
     hintMasks.clear();
-    const n = Math.min(maskedHintCount(waveIndex), level.words.length);
+    const n = maskAllHints
+      ? level.words.length
+      : Math.min(maskedHintCount(waveIndex), level.words.length);
     const order = level.words.slice();
     for (let i = order.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
@@ -221,20 +247,29 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
     return [...word].map((ch, i) => (i === hide ? '_' : ch)).join('');
   }
 
-  function renderWords(): void {
+  function renderWords(fadeIn = false): void {
     wordsEl.innerHTML = level.words
-      .map((word) => {
+      .map((word, i) => {
         const pending = pendingWords.has(word);
         const done = !remaining.has(word) && !pending;
+        const enter = fadeIn ? ' ws-word-in' : '';
+        const delay = `--i:${i}`;
         if (pending) {
           const chars = [...word]
             .map((ch) => `<span class="ws-ch">${escapeHtml(ch)}</span>`)
             .join('');
-          return `<li data-word="${escapeHtml(word)}">${chars}</li>`;
+          return `<li data-word="${escapeHtml(word)}" class="${enter.trim()}" style="${delay}">${chars}</li>`;
         }
-        return `<li data-word="${escapeHtml(word)}" class="${done ? 'found' : ''}">${escapeHtml(hintLabel(word))}</li>`;
+        return `<li data-word="${escapeHtml(word)}" class="${done ? 'found' : ''}${enter}" style="${delay}">${escapeHtml(hintLabel(word))}</li>`;
       })
       .join('');
+  }
+
+  function fadeWordListOut(): Promise<void> {
+    const items = [...wordsEl.querySelectorAll('li')];
+    if (items.length === 0) return Promise.resolve();
+    for (const li of items) li.classList.add('ws-word-out');
+    return waitMs(280);
   }
 
   const SVG_NS = 'http://www.w3.org/2000/svg';
@@ -263,11 +298,26 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
   const FAIL_FADE_AT = 400;
   const FAIL_FADE_MS = 260;
   const FAIL_CYCLES = 3.25;
+  const PREVIEW_OK_HOLD_MS = 400;
+  const PREVIEW_OUT_MS = 140;
+  let previewHideTimer = 0;
   const FAIL_AMP_CELLS = 0.1;
+  const FAIL_ROT_DEG = 12;
   const BLOOM_MS = 280;
   const BLOOM_TO_CELLS = 1.15;
+  const BLOOM_EXTRA_MS = 360;
+  const BLOOM_EXTRA_TO_CELLS = 1.5;
+  const BLOOM_EXTRA_DELAY_MS = 100;
   let bloomRaf = 0;
-  const blooms: { el: SVGLineElement; at: number; start: Cell; end: Cell; color: string }[] = [];
+  const blooms: {
+    el: SVGLineElement;
+    at: number;
+    start: Cell;
+    end: Cell;
+    color: string;
+    toCells: number;
+    ms: number;
+  }[] = [];
   let letterAlongN = 0;
 
   /** Light/scale a cell 0.3 steps before its center (along + 0.3). */
@@ -401,11 +451,37 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
     el.classList.add(cls);
   }
 
+  function restPreviewMotion(): void {
+    previewMotion.style.transform = '';
+    previewMotion.style.opacity = '';
+  }
+
+  function hidePreview(): void {
+    window.clearTimeout(previewHideTimer);
+    previewHideTimer = 0;
+    previewEl.classList.remove('pop', 'out');
+    previewEl.style.transform = '';
+    restPreviewMotion();
+    previewEl.hidden = true;
+    previewEl.textContent = '';
+  }
+
+  function dismissPreview(holdMs: number): void {
+    window.clearTimeout(previewHideTimer);
+    previewHideTimer = window.setTimeout(() => {
+      bump(previewEl, 'out');
+      previewHideTimer = window.setTimeout(() => hidePreview(), PREVIEW_OUT_MS);
+    }, holdMs);
+  }
+
   function setPreview(text: string, pop: boolean): void {
+    window.clearTimeout(previewHideTimer);
+    previewHideTimer = 0;
     previewEl.classList.remove('out');
+    previewEl.style.transform = '';
+    restPreviewMotion();
     if (!text) {
-      previewEl.hidden = true;
-      previewEl.textContent = '';
+      hidePreview();
       return;
     }
     const changed = previewEl.textContent !== text || previewEl.hidden;
@@ -433,17 +509,39 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
     };
   }
 
-  function onDown(ev: PointerEvent): void {
-    if (phase !== 'playing') return;
-    if (ev.button !== 0 && ev.pointerType === 'mouse') return;
+  function ignoreExtra(ev: Event): void {
+    ev.preventDefault();
+    ev.stopImmediatePropagation();
+  }
+
+  function clearOwner(): void {
+    ownerPointerId = null;
+    ownerTouchId = null;
+    pointerLost = false;
+    pendingEnter = false;
+  }
+
+  function capturePointer(id: number): void {
+    try {
+      playEl.setPointerCapture(id);
+    } catch {
+      /* not a pointer target */
+    }
+  }
+
+  function releaseCaptured(id: number): void {
+    try {
+      playEl.releasePointerCapture(id);
+    } catch {
+      /* already released */
+    }
+  }
+
+  function beginAtCell(cell: Cell): void {
     unlockNoteSfx();
     beginSwipeSfx();
-    const loc = localOnGrid(ev.clientX, ev.clientY);
-    if (!loc) return;
-    const cell = cellFromLocal(loc.x, loc.y, loc.px, level.size);
-    if (!cell) return;
     stopFailFx();
-    boardEl.setPointerCapture(ev.pointerId);
+    pendingEnter = false;
     strokeColor = pickStrokeColor();
     startCandidates = placementsAtCell(livePlacements(), cell);
     let prefer: number | null = null;
@@ -459,8 +557,63 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
     setPreview(level.grid[cell.row][cell.col], true);
     fireHaptic('press');
     playNoteForCellIndex(0);
-    ev.preventDefault();
     if (!visualRaf) visualRaf = requestAnimationFrame(pumpVisual);
+  }
+
+  function cellAtClient(clientX: number, clientY: number): Cell | null {
+    const loc = localOnGrid(clientX, clientY);
+    if (!loc) return null;
+    return cellFromLocal(loc.x, loc.y, loc.px, level.size);
+  }
+
+  function nearestLiveTouch(clientX: number, clientY: number): number | null {
+    let best: number | null = null;
+    let bestD = Infinity;
+    for (const [id, p] of liveTouches) {
+      const d = (p.x - clientX) ** 2 + (p.y - clientY) ** 2;
+      if (d < bestD) {
+        bestD = d;
+        best = id;
+      }
+    }
+    return best;
+  }
+
+  function rememberTouches(ev: TouchEvent, drop: boolean): void {
+    for (const t of ev.changedTouches) {
+      if (drop) liveTouches.delete(t.identifier);
+      else liveTouches.set(t.identifier, { x: t.clientX, y: t.clientY });
+    }
+  }
+
+  function touchById(list: TouchList, id: number): Touch | null {
+    for (const t of list) {
+      if (t.identifier === id) return t;
+    }
+    return null;
+  }
+
+  function onDown(ev: PointerEvent): void {
+    if (ownerPointerId !== null && ev.pointerId !== ownerPointerId) {
+      ignoreExtra(ev);
+      return;
+    }
+    if (phase !== 'playing') return;
+    if (session || ownerPointerId !== null) {
+      ignoreExtra(ev);
+      return;
+    }
+    if (ev.button !== 0 && ev.pointerType === 'mouse') return;
+    const hit = ev.target as HTMLElement | null;
+    if (hit?.closest('.ws-top, .ws-tune, .ws-icon, button')) return;
+    ownerPointerId = ev.pointerId;
+    pointerLost = false;
+    pendingEnter = true;
+    ownerTouchId = nearestLiveTouch(ev.clientX, ev.clientY);
+    capturePointer(ev.pointerId);
+    const cell = cellAtClient(ev.clientX, ev.clientY);
+    if (cell) beginAtCell(cell);
+    ev.preventDefault();
   }
 
   function pumpVisual(): void {
@@ -476,9 +629,9 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
     visualRaf = 0;
   }
 
-  function onMove(ev: PointerEvent): void {
+  function applyMove(clientX: number, clientY: number): void {
     if (!session) return;
-    const loc = localOnGrid(ev.clientX, ev.clientY);
+    const loc = localOnGrid(clientX, clientY);
     if (!loc) return;
     session = moveSwipe(session, loc.x, loc.y, loc.px, level.size);
     render();
@@ -501,7 +654,70 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
     } else {
       setPreview(live, false);
     }
+  }
+
+  function onMove(ev: PointerEvent): void {
+    if (ev.pointerId !== ownerPointerId) {
+      if (ownerPointerId !== null) ignoreExtra(ev);
+      return;
+    }
+    if (pendingEnter && !session) {
+      const cell = cellAtClient(ev.clientX, ev.clientY);
+      if (cell) beginAtCell(cell);
+    }
+    applyMove(ev.clientX, ev.clientY);
     ev.preventDefault();
+  }
+
+  function onTouchStart(ev: TouchEvent): void {
+    rememberTouches(ev, false);
+    if (ownerPointerId === null && !session) return;
+    if (ownerTouchId === null) {
+      ownerTouchId = nearestLiveTouch(ev.changedTouches[0]!.clientX, ev.changedTouches[0]!.clientY);
+    }
+    let extra = false;
+    for (const t of ev.changedTouches) {
+      if (t.identifier !== ownerTouchId) extra = true;
+    }
+    if (extra) ignoreExtra(ev);
+  }
+
+  function onTouchMove(ev: TouchEvent): void {
+    rememberTouches(ev, false);
+    if (ownerPointerId === null && ownerTouchId === null) return;
+    if (!session && !pendingEnter) return;
+    let extra = false;
+    for (const t of ev.changedTouches) {
+      if (t.identifier !== ownerTouchId) extra = true;
+    }
+    if (extra) ignoreExtra(ev);
+    if (ownerTouchId === null && ev.touches.length > 0) {
+      ownerTouchId = nearestLiveTouch(ev.touches[0]!.clientX, ev.touches[0]!.clientY);
+    }
+    const mine = ownerTouchId === null
+      ? null
+      : touchById(ev.touches, ownerTouchId) ?? touchById(ev.changedTouches, ownerTouchId);
+    if (pendingEnter && !session && mine) {
+      const cell = cellAtClient(mine.clientX, mine.clientY);
+      if (cell) beginAtCell(cell);
+    }
+    if (pointerLost && mine) applyMove(mine.clientX, mine.clientY);
+  }
+
+  function onTouchEnd(ev: TouchEvent): void {
+    let ownerEnded = false;
+    let extra = false;
+    for (const t of ev.changedTouches) {
+      if (t.identifier === ownerTouchId) ownerEnded = true;
+      else extra = true;
+    }
+    rememberTouches(ev, true);
+    if (ownerTouchId === null && ownerPointerId === null) return;
+    if (extra) ignoreExtra(ev);
+    if (!ownerEnded) return;
+    const mine = touchById(ev.changedTouches, ownerTouchId!);
+    if (mine) applyMove(mine.clientX, mine.clientY);
+    endPointer(true, mine?.clientX, mine?.clientY);
   }
 
   function failAxis(): { x: number; y: number } {
@@ -511,12 +727,21 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
     return { x: step.col / len, y: step.row / len };
   }
 
-  function stopFailFx(): void {
+  function stopFailFx(clearPreview = true): void {
     if (failRaf) cancelAnimationFrame(failRaf);
     failRaf = 0;
     failHold = null;
     cellsEl.classList.remove('fail-out');
     resetLiveGroup();
+    if (clearPreview) hidePreview();
+  }
+
+  function poseFailPreview(rotDeg: number, fadeT: number): void {
+    previewEl.classList.remove('pop', 'out');
+    previewEl.style.transform = '';
+    previewEl.hidden = false;
+    previewMotion.style.opacity = String(1 - fadeT);
+    previewMotion.style.transform = `rotate(${rotDeg.toFixed(2)}deg)`;
   }
 
   function pumpFail(now: number): void {
@@ -533,6 +758,7 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
     const dy = axis.y * amp * envelope * wave;
     liveGroup.setAttribute('transform', `translate(${dx.toFixed(3)} ${dy.toFixed(3)})`);
     liveGroup.setAttribute('opacity', String(1 - fadeT));
+    poseFailPreview(FAIL_ROT_DEG * envelope * wave, fadeT);
     if (fadeT > 0 && !failHold.fadeLetters) {
       failHold.fadeLetters = true;
       cellsEl.classList.add('fail-out');
@@ -548,7 +774,7 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
 
   function beginFailFx(): void {
     if (!session) return;
-    stopFailFx();
+    stopFailFx(false);
     fireHaptic('miss');
     playMissSfx(lastNoteIndex);
     const reached = cellsReachedByLine(
@@ -662,17 +888,20 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
   function finishLetterFlight(word: string, li: HTMLElement): void {
     pendingWords.delete(word);
     li.classList.add('found');
-    maybeStartWave();
+    li.classList.add('ws-word-out');
+    window.setTimeout(() => maybeStartWave(), 280);
   }
 
   function finishStroke(ok: boolean, cancelled = false, flyTarget = true): void {
     previewEl.classList.remove('pop');
-    bump(previewEl, 'out');
-    window.setTimeout(() => setPreview('', false), 140);
     if (!ok) {
       if (!cancelled) beginFailFx();
+      else {
+        dismissPreview(0);
+      }
       return;
     }
+    dismissPreview(PREVIEW_OK_HOLD_MS);
     const last = found[found.length - 1];
     if (last && flyTarget) startLetterFlight(last.word, last.start, last.end);
     else if (ok) maybeStartWave();
@@ -682,10 +911,15 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
     bloomRaf = 0;
     const cellW = 100 / level.size;
     const w0 = cellW * LINE_WIDTH_CELLS;
-    const w1 = cellW * BLOOM_TO_CELLS;
     for (let i = blooms.length - 1; i >= 0; i--) {
       const b = blooms[i]!;
-      const t = Math.min(1, (now - b.at) / BLOOM_MS);
+      const w1 = cellW * b.toCells;
+      const raw = (now - b.at) / b.ms;
+      if (raw < 0) {
+        b.el.setAttribute('opacity', '0');
+        continue;
+      }
+      const t = Math.min(1, raw);
       const ease = 1 - (1 - t) * (1 - t);
       const geom = lineGeom(b.start, b.end, false);
       geom.width = w0 + (w1 - w0) * ease;
@@ -699,13 +933,20 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
     if (blooms.length > 0) bloomRaf = requestAnimationFrame(pumpBlooms);
   }
 
-  function spawnBloom(start: Cell, end: Cell, color: string): void {
+  function spawnBloom(
+    start: Cell,
+    end: Cell,
+    color: string,
+    toCells = BLOOM_TO_CELLS,
+    ms = BLOOM_MS,
+    delayMs = 0,
+  ): void {
     const el = document.createElementNS(SVG_NS, 'line');
-    el.setAttribute('opacity', '1');
+    el.setAttribute('opacity', delayMs > 0 ? '0' : '1');
     setLine(el, lineGeom(start, end, true), color);
     bloomGroup.append(el);
     const now = performance.now();
-    blooms.push({ el, at: now - 16, start, end, color });
+    blooms.push({ el, at: now - 16 + delayMs, start, end, color, toCells, ms });
     pumpBlooms(now);
   }
 
@@ -714,8 +955,13 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
       finishStroke(false, true);
       return;
     }
-    spawnBloom(start, end, strokeColor);
     const target = remaining.has(word);
+    if (target) {
+      spawnBloom(start, end, strokeColor);
+    } else {
+      spawnBloom(start, end, strokeColor, BLOOM_EXTRA_TO_CELLS, BLOOM_EXTRA_MS);
+      spawnBloom(start, end, strokeColor, BLOOM_EXTRA_TO_CELLS, BLOOM_EXTRA_MS, BLOOM_EXTRA_DELAY_MS);
+    }
     if (target) remaining.delete(word);
     found.push({ word, start, end, color: strokeColor });
     addScore(word);
@@ -760,16 +1006,17 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
     finishStroke(false);
   }
 
-  function endPointer(ev: PointerEvent, commit: boolean): void {
+  function endPointer(commit: boolean, clientX?: number, clientY?: number): void {
+    if (ownerPointerId === null && !session) return;
+    const id = ownerPointerId;
+    clearOwner();
+    if (id !== null) releaseCaptured(id);
     if (!session) return;
-    try {
-      boardEl.releasePointerCapture(ev.pointerId);
-    } catch {
-      /* already released */
-    }
     if (commit) {
-      const loc = localOnGrid(ev.clientX, ev.clientY);
-      if (loc) session = moveSwipe(session, loc.x, loc.y, loc.px, level.size);
+      if (clientX !== undefined && clientY !== undefined) {
+        const loc = localOnGrid(clientX, clientY);
+        if (loc) session = moveSwipe(session, loc.x, loc.y, loc.px, level.size);
+      }
       tryCommit();
     } else {
       finishStroke(false, true);
@@ -785,11 +1032,15 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
   }
 
   function onUp(ev: PointerEvent): void {
-    endPointer(ev, true);
+    if (ev.pointerId !== ownerPointerId) return;
+    endPointer(true, ev.clientX, ev.clientY);
   }
 
   function onCancel(ev: PointerEvent): void {
-    endPointer(ev, false);
+    if (ev.pointerId !== ownerPointerId) return;
+    // Second finger often cancels the first pointer on iOS; keep the swipe.
+    pointerLost = true;
+    releaseCaptured(ev.pointerId);
   }
 
   function cellNode(row: number, col: number): HTMLElement | null {
@@ -826,9 +1077,11 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
     catalog = locatePlacements(level.grid, WAVE_LEXICON);
     if (plan.theme) {
       level.theme = plan.theme;
+      seenThemes.add(plan.theme);
       const themeEl = uiRoot.querySelector('.ws-theme');
       if (themeEl) themeEl.textContent = plan.theme;
     }
+    maskAllHints = Boolean(plan.maskAllHints);
     foundGroup.replaceChildren();
     foundGroup.style.opacity = '1';
   }
@@ -925,12 +1178,16 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
     const gen = waveGen;
     phase = 'wave';
     session = null;
+    clearOwner();
     startCandidates = [];
     stopVisual();
     stopFailFx();
 
+    await fadeWordListOut();
+    if (gen !== waveGen) return;
+
     const used = cellsFromFound(found, cellsOnSegment);
-    const plan = planNextWave(level.grid, used, waveIndex + 1, level.theme);
+    const plan = planNextWave(level.grid, used, waveIndex + 1, level.theme, [...seenThemes]);
 
     foundGroup.style.transition = 'opacity 200ms ease';
     foundGroup.style.opacity = '0';
@@ -956,7 +1213,7 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
     waveIndex += 1;
     rebuildHintMasks();
     pendingWords.clear();
-    renderWords();
+    renderWords(true);
     render();
     phase = 'playing';
     void waitMs(0);
@@ -969,7 +1226,10 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
     boardEl.classList.remove('ws-dropping');
     boardEl.classList.remove('ws-falling');
     waveIndex = 1;
+    maskAllHints = false;
+    seenThemes.clear();
     const fresh = createWaveLevel(6, 1);
+    seenThemes.add(fresh.theme);
     level.grid = fresh.grid;
     level.words = fresh.words;
     level.theme = fresh.theme;
@@ -993,27 +1253,37 @@ export function mountWordSearch(uiRoot: HTMLElement): () => void {
     foundGroup.replaceChildren();
     foundGroup.style.opacity = '1';
     session = null;
+    clearOwner();
     startCandidates = [];
     stopVisual();
     rebuildHintMasks();
-    renderWords();
+    renderWords(true);
     render();
   }
 
-  renderWords();
+  renderWords(true);
   render();
 
-  boardEl.addEventListener('pointerdown', onDown);
-  boardEl.addEventListener('pointermove', onMove);
-  boardEl.addEventListener('pointerup', onUp);
-  boardEl.addEventListener('pointercancel', onCancel);
+  const touchOpt: AddEventListenerOptions = { capture: true, passive: false };
+  playEl.addEventListener('pointerdown', onDown);
+  playEl.addEventListener('pointermove', onMove);
+  playEl.addEventListener('pointerup', onUp);
+  playEl.addEventListener('pointercancel', onCancel);
+  document.addEventListener('touchstart', onTouchStart, touchOpt);
+  document.addEventListener('touchmove', onTouchMove, touchOpt);
+  document.addEventListener('touchend', onTouchEnd, touchOpt);
+  document.addEventListener('touchcancel', onTouchEnd, touchOpt);
   resetBtn.addEventListener('click', reset);
 
   return () => {
-    boardEl.removeEventListener('pointerdown', onDown);
-    boardEl.removeEventListener('pointermove', onMove);
-    boardEl.removeEventListener('pointerup', onUp);
-    boardEl.removeEventListener('pointercancel', onCancel);
+    playEl.removeEventListener('pointerdown', onDown);
+    playEl.removeEventListener('pointermove', onMove);
+    playEl.removeEventListener('pointerup', onUp);
+    playEl.removeEventListener('pointercancel', onCancel);
+    document.removeEventListener('touchstart', onTouchStart, touchOpt);
+    document.removeEventListener('touchmove', onTouchMove, touchOpt);
+    document.removeEventListener('touchend', onTouchEnd, touchOpt);
+    document.removeEventListener('touchcancel', onTouchEnd, touchOpt);
     resetBtn.removeEventListener('click', reset);
     tunePanel.destroy();
     stopVisual();

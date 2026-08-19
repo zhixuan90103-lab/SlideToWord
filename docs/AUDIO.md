@@ -2,8 +2,9 @@
 
 配套：[AGENTS.md](../AGENTS.md) · [ENGINEERING.md](./ENGINEERING.md)
 
-> 本底座 **尚未实现音效**。下文是接入规范。  
-> 目标：真机 iOS 上连发 SFX **不卡帧、不卡声**。
+> 过格 / 找对升一档 / 错误降两档已接：`src/audio/noteSfx.ts`（WebAudio）。  
+> 下文是**原生池**长期规范。目标：真机 iOS 上连发 SFX **不卡帧、不卡声**。  
+> 热路径仍禁止 `new Audio()` / 每发一次 Capacitor 桥。
 
 ## 1. 结论
 

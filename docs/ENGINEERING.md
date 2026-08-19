@@ -20,16 +20,18 @@ portrait-webgpu-base/
 │   ├── main.ts             # 启动 adapt + 划词
 │   ├── create-renderer.ts
 │   ├── style.css
+│   ├── audio/noteSfx.ts    # 过格 / 找对升档 / 错误降档
 │   ├── game/
 │   │   ├── swipeDesign.ts  # 划词手势 / 意图门（SWIPE + INTENT）
-│   │   ├── model.ts        # 关卡、放置索引
-│   │   ├── wave.ts         # 过波：压实、补字、种词、锁格
+│   │   ├── model.ts        # 放置索引
+│   │   ├── wave.ts         # 过波：主题、种词、锁格（WAVE.md）
 │   │   ├── fallFeel.ts     # 下落/落地缓冲（同一 pose）
 │   │   ├── mount.ts        # 盘面、合同、成交、过波动画
 │   │   └── tune.ts         # 设置调参（TUNE.md）
 │   ├── adapt/
 │   │   ├── design.ts       # 390×844 · layout · clientToDesign
 │   │   ├── devicePreview.ts
+│   │   ├── lockGestures.ts # 禁双指 / 双击放大 / 捏合
 │   │   └── safeArea.ts
 │   └── utils/haptics.ts
 ├── plugins/native-haptics/ # Swift 真源
@@ -108,9 +110,11 @@ JS：`src/utils/haptics.ts`（`registerPlugin('AdvancedHaptics')`）
 Swift **没有** `prepare`；引擎在 `load()` 启动。不要用 JS `prepare()` 判断是否接上。  
 业务节奏（具名事件、cooldown、开关）写在游戏层，不要改插件除非新增原生方法。
 
-## 7b. Audio（尚未实现）
+## 7b. Audio
 
-本仓库无播放代码。接入规范见 [AUDIO.md](./AUDIO.md)：
+过格音已接：`src/audio/noteSfx.ts`（WebAudio，真机 WKWebView 可用）。原生 PlayerNode 池仍是长期目标，见 [AUDIO.md](./AUDIO.md)。热路径禁止 `new Audio()` / 每发一次桥。
+
+长期规范：
 
 - Loading **预解码**；热路径禁止 `new Audio()` / decode / 读盘
 - `AudioBatcher`：**每帧最多一次** Capacitor 桥
@@ -136,6 +140,8 @@ npm run cap:sync
 5. `dist` / `ios/.../public` 是产物  
 6. appId `com.example.*` 仅脚手架  
 7. 震动没接上：先看 [HAPTICS.md §0](./HAPTICS.md)，不要只 `cap:sync`，不要用 `prepare()` 当验收  
+8. 下落禁止终点格 `translateY`；用棋盘对齐浮层。真机不要给 `.ws-play` 加 `scale`  
+9. 第二根手指不得结束第一划；`pointercancel` 在仍按住第一指时忽略  
 
 ## 10. 变更
 

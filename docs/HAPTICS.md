@@ -127,7 +127,7 @@ Safari → 开发 → 你的 iPhone → 该 App，粘贴：
 
 禁止：玩法里再 `registerPlugin`、再 `navigator.vibrate`、`await` 堵逻辑帧。一律 `void`。
 
-改手感：只改 `TUNE_DEFAULTS` 并**升高** `STORAGE_KEY`（现 `slidetoword.tune.v14`）。只改 JS 不必 bootstrap。
+改手感：只改 `TUNE_DEFAULTS` 并**升高** `STORAGE_KEY`（现 `slidetoword.tune.v15`）。只改 JS 不必 bootstrap。
 
 ---
 

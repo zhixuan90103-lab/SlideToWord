@@ -35,6 +35,8 @@ body {
   touch-action: none;
   -webkit-user-select: none;
   user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-user-drag: none;
   -webkit-tap-highlight-color: transparent;
 }
 
@@ -397,6 +399,7 @@ body.ws-tune-open .ws-top {
 }
 
 .ws-play {
+  pointer-events: auto;
   flex: 1;
   min-height: 0;
   display: flex;
@@ -457,6 +460,26 @@ body.ws-tune-open .ws-top {
   letter-spacing: 0.08em;
   color: #2b2b2b;
   text-align: center;
+  opacity: 1;
+  transition: opacity 280ms ease;
+}
+
+.ws-words li.ws-word-in {
+  animation: ws-word-fade-in 320ms ease both;
+  animation-delay: calc(var(--i, 0) * 45ms);
+}
+
+.ws-words li.ws-word-out {
+  opacity: 0;
+}
+
+@keyframes ws-word-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 .ws-words li.found {
@@ -532,26 +555,47 @@ body.ws-tune-open .ws-top {
   flex: none;
 }
 
+/* Zero-size point = capsule center. Motion never lives on the painted pill. */
+.ws-preview-origin,
+.ws-preview-motion {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+}
+
+.ws-preview-origin {
+  left: calc(50% + var(--ws-preview-x, 0px));
+  top: var(--ws-preview-y, 24px);
+}
+
+.ws-preview-motion {
+  transform-origin: 0 0;
+}
+
 .ws-preview {
   pointer-events: none;
   position: absolute;
-  left: 50%;
+  left: 0;
   top: 0;
-  transform: translate(
-    calc(-50% + var(--ws-preview-x, 0px)),
-    calc(-50% + var(--ws-preview-y, 24px))
-  );
+  transform: translate(-50%, -50%);
+  transform-origin: 50% 50%;
   margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  height: 26px;
   min-width: 28px;
-  min-height: 26px;
-  padding: 2px 12px;
+  padding: 0 12px;
   border-radius: 999px;
   background: #22c55e;
   color: #fff;
   font-size: 16px;
   font-weight: 800;
   letter-spacing: 0.08em;
-  line-height: 22px;
+  line-height: 1;
   text-align: center;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
 }
@@ -687,28 +731,16 @@ body.ws-tune-open .ws-top {
 
 @keyframes ws-preview-pop {
   0% {
-    transform: translate(
-        calc(-50% + var(--ws-preview-x, 0px)),
-        calc(-50% + var(--ws-preview-y, 24px))
-      )
-      scale(0.82);
+    transform: translate(-50%, -50%) scale(0.82);
   }
   100% {
-    transform: translate(
-        calc(-50% + var(--ws-preview-x, 0px)),
-        calc(-50% + var(--ws-preview-y, 24px))
-      )
-      scale(1);
+    transform: translate(-50%, -50%) scale(1);
   }
 }
 
 @keyframes ws-preview-out {
   to {
-    transform: translate(
-        calc(-50% + var(--ws-preview-x, 0px)),
-        calc(-50% + var(--ws-preview-y, 24px))
-      )
-      scale(0.7);
+    transform: translate(-50%, -50%) scale(0.7);
     opacity: 0;
   }
 }

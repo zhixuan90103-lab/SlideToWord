@@ -17,14 +17,15 @@
 index.html
   → style.css
   → main.ts
+       → lockWebGestures
        → applyNativeClass / safeArea
        → mountDevicePreview → computeStageLayout → applyStageTransform
        → watchStageLayout
        → mountWordSearch(#ui-root)
-            → model 关卡
+            → wave 开局种盘
             → swipeDesign 手势
             → tune 设置面板
-            → pointer + 条/字/胶囊反馈
+            → 单指 pointer + 条/字/胶囊反馈
 ```
 
 当前 **不** 创建 WebGPU canvas。
@@ -67,8 +68,9 @@ Xcode / cap run
 | 意图识别（候选 / 终点门） | [INTENT.md](./INTENT.md) · `swipeDesign.pickIntentPlacement` |
 | 盘面与按下观感 | `src/game/mount.ts` · `src/style.css` |
 | 调参（设置里开关） | `src/game/tune.ts` · [TUNE.md](./TUNE.md) |
-| 关卡 / 第一波 | `src/game/model.ts` |
-| 过波（消落补、选词） | `src/game/wave.ts` · `mount.ts` |
+| 关卡 / 放置索引 | `src/game/model.ts` |
+| 过波（消落补、主题、重复主题） | `src/game/wave.ts` · `mount.ts` · [WAVE.md](./WAVE.md) |
+| 禁网页手势 / 双指 | `src/adapt/lockGestures.ts` · `BridgeViewController.swift` |
 | base / 端口 | `vite.config.ts` |
 | appId / 显示名 | `capacitor.config.ts` |
 | 设计分辨率 | `design.ts` + `style.css` `#stage` |
